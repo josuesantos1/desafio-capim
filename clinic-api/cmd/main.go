@@ -17,6 +17,7 @@ import (
 
 	"github.com/josuesantos1/desafio/internal/clinic"
 	"github.com/josuesantos1/desafio/internal/config"
+	"github.com/josuesantos1/desafio/internal/dentist"
 	"github.com/josuesantos1/desafio/internal/server"
 )
 
@@ -30,7 +31,12 @@ func main() {
 	defer db.Close()
 
 	router := server.NewRouter()
-	clinic.RegisterRoutes(router, clinic.NewService(clinic.NewPostgresRepository(db)))
+
+	clinicRepo := clinic.NewPostgresRepository(db)
+	clinic.RegisterRoutes(router, clinic.NewService(clinicRepo))
+
+	dentistRepo := dentist.NewPostgresRepository(db)
+	dentist.RegisterRoutes(router, dentist.NewService(dentistRepo, clinicRepo))
 
 	srv := server.New(cfg, router)
 

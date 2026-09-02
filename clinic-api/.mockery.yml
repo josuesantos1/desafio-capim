@@ -10,3 +10,10 @@ packages:
       include-auto-generated: false
     interfaces:
       Repository:
+  github.com/josuesantos1/desafio/internal/dentist:
+    config:
+      include-auto-generated: false
+      structname: "Dentist{{.InterfaceName}}"
+      filename: "Dentist{{.InterfaceName}}.go"
+    interfaces:
+      Repository:
