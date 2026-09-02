@@ -17,3 +17,10 @@ packages:
       filename: "Dentist{{.InterfaceName}}.go"
     interfaces:
       Repository:
+  github.com/josuesantos1/desafio/internal/payment:
+    config:
+      include-auto-generated: false
+      structname: "Payment{{.InterfaceName}}"
+      filename: "Payment{{.InterfaceName}}.go"
+    interfaces:
+      Repository:
