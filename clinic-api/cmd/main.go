@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -10,6 +11,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+
+	"github.com/josuesantos1/desafio/internal/clinic"
 	"github.com/josuesantos1/desafio/internal/config"
 	"github.com/josuesantos1/desafio/internal/server"
 )
@@ -20,7 +26,12 @@ func main() {
 	cfg := config.Load()
 	setupLogger(cfg.LogLevel)
 
+	db := connectDB(cfg.DB)
+	defer db.Close()
+
 	router := server.NewRouter()
+	clinic.RegisterRoutes(router, clinic.NewService(clinic.NewPostgresRepository(db)))
+
 	srv := server.New(cfg, router)
 
 	errCh := make(chan error, 1)
@@ -46,6 +57,20 @@ func main() {
 		slog.Info("shutdown signal received", "signal", sig.String())
 		shutdown(srv)
 	}
+}
+
+func connectDB(cfg config.DBConfig) *sqlx.DB {
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name, cfg.SSLMode,
+	)
+
+	db, err := sqlx.Connect("pgx", dsn)
+	if err != nil {
+		slog.Error("failed to connect to database", "error", err)
+		os.Exit(1)
+	}
+	return db
 }
 
 func shutdown(srv *http.Server) {

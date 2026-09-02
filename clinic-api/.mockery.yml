@@ -1,0 +1,12 @@
+dir: mocks
+filename: "{{.InterfaceName}}.go"
+structname: "{{.InterfaceName}}"
+pkgname: mocks
+template: testify
+force-file-write: true
+packages:
+  github.com/josuesantos1/desafio/internal/clinic:
+    config:
+      include-auto-generated: false
+    interfaces:
+      Repository:

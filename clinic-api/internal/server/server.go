@@ -15,7 +15,7 @@ const (
 	idleTimeout       = 60 * time.Second
 )
 
-func NewRouter() http.Handler {
+func NewRouter() chi.Router {
 	r := chi.NewRouter()
 	r.Get("/health", healthHandler)
 	return r
