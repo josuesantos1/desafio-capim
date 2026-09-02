@@ -24,6 +24,18 @@ type handler struct {
 	svc *Service
 }
 
+// create godoc
+// @Summary      Create a dentist in a clinic
+// @Tags         dentists
+// @Accept       json
+// @Produce      json
+// @Param        clinic_id  path      string       true  "Clinic ID"
+// @Param        dentist    body      CreateInput  true  "Dentist to create"
+// @Success      201        {object}  dentistResponse
+// @Failure      400        {object}  errorResponse
+// @Failure      404        {object}  errorResponse
+// @Failure      409        {object}  errorResponse
+// @Router       /clinics/{clinic_id}/dentists [post]
 func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	clinicID, ok := parseUUID(w, chi.URLParam(r, "clinic_id"))
 	if !ok {
@@ -45,6 +57,16 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toDentistResponse(d))
 }
 
+// get godoc
+// @Summary      Get a dentist by id
+// @Tags         dentists
+// @Produce      json
+// @Param        clinic_id  path      string  true  "Clinic ID"
+// @Param        id         path      string  true  "Dentist ID"
+// @Success      200        {object}  dentistResponse
+// @Failure      400        {object}  errorResponse
+// @Failure      404        {object}  errorResponse
+// @Router       /clinics/{clinic_id}/dentists/{id} [get]
 func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
 	if !ok {
@@ -60,6 +82,19 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toDentistResponse(d))
 }
 
+// update godoc
+// @Summary      Update a dentist (partial)
+// @Tags         dentists
+// @Accept       json
+// @Produce      json
+// @Param        clinic_id  path      string       true  "Clinic ID"
+// @Param        id         path      string       true  "Dentist ID"
+// @Param        dentist    body      UpdateInput  true  "Fields to update"
+// @Success      200        {object}  dentistResponse
+// @Failure      400        {object}  errorResponse
+// @Failure      404        {object}  errorResponse
+// @Failure      409        {object}  errorResponse
+// @Router       /clinics/{clinic_id}/dentists/{id} [put]
 func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
 	if !ok {
@@ -81,6 +116,15 @@ func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toDentistResponse(d))
 }
 
+// delete godoc
+// @Summary      Soft-delete a dentist
+// @Tags         dentists
+// @Param        clinic_id  path  string  true  "Clinic ID"
+// @Param        id         path  string  true  "Dentist ID"
+// @Success      204
+// @Failure      400  {object}  errorResponse
+// @Failure      404  {object}  errorResponse
+// @Router       /clinics/{clinic_id}/dentists/{id} [delete]
 func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
 	if !ok {
@@ -95,6 +139,17 @@ func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// list godoc
+// @Summary      List dentists of a clinic (paginated)
+// @Tags         dentists
+// @Produce      json
+// @Param        clinic_id  path      string  true   "Clinic ID"
+// @Param        limit      query     int     false  "Page size (default 20, max 100)"
+// @Param        offset     query     int     false  "Offset (default 0)"
+// @Success      200        {object}  listResponse
+// @Failure      400        {object}  errorResponse
+// @Failure      404        {object}  errorResponse
+// @Router       /clinics/{clinic_id}/dentists [get]
 func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	clinicID, ok := parseUUID(w, chi.URLParam(r, "clinic_id"))
 	if !ok {

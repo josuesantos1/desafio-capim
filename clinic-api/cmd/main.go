@@ -11,10 +11,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	_ "github.com/josuesantos1/desafio/docs"
 	"github.com/josuesantos1/desafio/internal/clinic"
 	"github.com/josuesantos1/desafio/internal/config"
 	"github.com/josuesantos1/desafio/internal/dentist"
@@ -23,6 +26,10 @@ import (
 
 const shutdownTimeout = 10 * time.Second
 
+// @title Clinic API
+// @version 1.0
+// @description API de gestão de clínica odontológica — clínicas e dentistas.
+// @BasePath /api
 func main() {
 	cfg := config.Load()
 	setupLogger(cfg.LogLevel)
@@ -33,10 +40,14 @@ func main() {
 	router := server.NewRouter()
 
 	clinicRepo := clinic.NewPostgresRepository(db)
-	clinic.RegisterRoutes(router, clinic.NewService(clinicRepo))
-
 	dentistRepo := dentist.NewPostgresRepository(db)
-	dentist.RegisterRoutes(router, dentist.NewService(dentistRepo, clinicRepo))
+
+	router.Route("/api", func(api chi.Router) {
+		clinic.RegisterRoutes(api, clinic.NewService(clinicRepo))
+		dentist.RegisterRoutes(api, dentist.NewService(dentistRepo, clinicRepo))
+	})
+
+	router.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	srv := server.New(cfg, router)
 

@@ -1,0 +1,418 @@
+basePath: /api
+definitions:
+  clinic.Banking:
+    properties:
+      account:
+        type: string
+      agency:
+        type: string
+      bank:
+        type: string
+    type: object
+  clinic.CreateInput:
+    properties:
+      banking:
+        $ref: '#/definitions/clinic.Banking'
+      document:
+        type: string
+      legal_name:
+        type: string
+      trade_name:
+        type: string
+    type: object
+  clinic.UpdateInput:
+    properties:
+      banking:
+        $ref: '#/definitions/clinic.Banking'
+      document:
+        description: |-
+          Document is present only to detect an attempted change; it is
+          never applied to Clinic.Document.
+        type: string
+      legal_name:
+        type: string
+      trade_name:
+        type: string
+    type: object
+  clinic.bankingResponse:
+    properties:
+      account:
+        type: string
+      agency:
+        type: string
+      bank:
+        type: string
+    type: object
+  clinic.clinicResponse:
+    properties:
+      banking:
+        $ref: '#/definitions/clinic.bankingResponse'
+      created_at:
+        type: string
+      document:
+        type: string
+      id:
+        type: string
+      legal_name:
+        type: string
+      trade_name:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  clinic.errorResponse:
+    properties:
+      error:
+        type: string
+      fields:
+        additionalProperties:
+          type: string
+        type: object
+      message:
+        type: string
+    type: object
+  dentist.CreateInput:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+    type: object
+  dentist.UpdateInput:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+    type: object
+  dentist.dentistResponse:
+    properties:
+      clinic_id:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  dentist.errorResponse:
+    properties:
+      error:
+        type: string
+      fields:
+        additionalProperties:
+          type: string
+        type: object
+      message:
+        type: string
+    type: object
+  dentist.listResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/dentist.dentistResponse'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: API de gestão de clínica odontológica — clínicas e dentistas.
+  title: Clinic API
+  version: "1.0"
+paths:
+  /clinics:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Clinic to create
+        in: body
+        name: clinic
+        required: true
+        schema:
+          $ref: '#/definitions/clinic.CreateInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/clinic.clinicResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/clinic.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/clinic.errorResponse'
+      summary: Create a clinic
+      tags:
+      - clinics
+  /clinics/{clinic_id}/dentists:
+    get:
+      parameters:
+      - description: Clinic ID
+        in: path
+        name: clinic_id
+        required: true
+        type: string
+      - description: Page size (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dentist.listResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+      summary: List dentists of a clinic (paginated)
+      tags:
+      - dentists
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Clinic ID
+        in: path
+        name: clinic_id
+        required: true
+        type: string
+      - description: Dentist to create
+        in: body
+        name: dentist
+        required: true
+        schema:
+          $ref: '#/definitions/dentist.CreateInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dentist.dentistResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+      summary: Create a dentist in a clinic
+      tags:
+      - dentists
+  /clinics/{clinic_id}/dentists/{id}:
+    delete:
+      parameters:
+      - description: Clinic ID
+        in: path
+        name: clinic_id
+        required: true
+        type: string
+      - description: Dentist ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+      summary: Soft-delete a dentist
+      tags:
+      - dentists
+    get:
+      parameters:
+      - description: Clinic ID
+        in: path
+        name: clinic_id
+        required: true
+        type: string
+      - description: Dentist ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dentist.dentistResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+      summary: Get a dentist by id
+      tags:
+      - dentists
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Clinic ID
+        in: path
+        name: clinic_id
+        required: true
+        type: string
+      - description: Dentist ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: dentist
+        required: true
+        schema:
+          $ref: '#/definitions/dentist.UpdateInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dentist.dentistResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+      summary: Update a dentist (partial)
+      tags:
+      - dentists
+  /clinics/{id}:
+    delete:
+      parameters:
+      - description: Clinic ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/clinic.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/clinic.errorResponse'
+      summary: Soft-delete a clinic
+      tags:
+      - clinics
+    get:
+      parameters:
+      - description: Clinic ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/clinic.clinicResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/clinic.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/clinic.errorResponse'
+      summary: Get a clinic by id
+      tags:
+      - clinics
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Clinic ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: clinic
+        required: true
+        schema:
+          $ref: '#/definitions/clinic.UpdateInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/clinic.clinicResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/clinic.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/clinic.errorResponse'
+      summary: Update a clinic (partial)
+      tags:
+      - clinics
+swagger: "2.0"

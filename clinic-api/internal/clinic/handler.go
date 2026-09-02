@@ -22,6 +22,16 @@ type handler struct {
 	svc *Service
 }
 
+// create godoc
+// @Summary      Create a clinic
+// @Tags         clinics
+// @Accept       json
+// @Produce      json
+// @Param        clinic  body      CreateInput  true  "Clinic to create"
+// @Success      201     {object}  clinicResponse
+// @Failure      400     {object}  errorResponse
+// @Failure      409     {object}  errorResponse
+// @Router       /clinics [post]
 func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	var in CreateInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
@@ -38,6 +48,15 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toClinicResponse(c))
 }
 
+// get godoc
+// @Summary      Get a clinic by id
+// @Tags         clinics
+// @Produce      json
+// @Param        id   path      string  true  "Clinic ID"
+// @Success      200  {object}  clinicResponse
+// @Failure      400  {object}  errorResponse
+// @Failure      404  {object}  errorResponse
+// @Router       /clinics/{id} [get]
 func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
 	if !ok {
@@ -53,6 +72,17 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toClinicResponse(c))
 }
 
+// update godoc
+// @Summary      Update a clinic (partial)
+// @Tags         clinics
+// @Accept       json
+// @Produce      json
+// @Param        id      path      string       true  "Clinic ID"
+// @Param        clinic  body      UpdateInput  true  "Fields to update"
+// @Success      200     {object}  clinicResponse
+// @Failure      400     {object}  errorResponse
+// @Failure      404     {object}  errorResponse
+// @Router       /clinics/{id} [put]
 func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
 	if !ok {
@@ -74,6 +104,14 @@ func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toClinicResponse(c))
 }
 
+// delete godoc
+// @Summary      Soft-delete a clinic
+// @Tags         clinics
+// @Param        id   path  string  true  "Clinic ID"
+// @Success      204
+// @Failure      400  {object}  errorResponse
+// @Failure      404  {object}  errorResponse
+// @Router       /clinics/{id} [delete]
 func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
 	if !ok {
