@@ -130,6 +130,47 @@ definitions:
       total:
         type: integer
     type: object
+  payment.CreateInput:
+    properties:
+      amount:
+        type: integer
+      clinic_id:
+        type: string
+      dentist_id:
+        type: string
+    type: object
+  payment.errorResponse:
+    properties:
+      error:
+        type: string
+      fields:
+        additionalProperties:
+          type: string
+        type: object
+      message:
+        type: string
+    type: object
+  payment.paymentResponse:
+    properties:
+      amount:
+        type: integer
+      approved_at:
+        type: string
+      clinic_id:
+        type: string
+      created_at:
+        type: string
+      dentist_id:
+        type: string
+      id:
+        type: string
+      pix_code:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
 info:
   contact: {}
   description: API de gestão de clínica odontológica — clínicas e dentistas.
@@ -415,4 +456,59 @@ paths:
       summary: Update a clinic (partial)
       tags:
       - clinics
+  /payments:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Payment to create
+        in: body
+        name: payment
+        required: true
+        schema:
+          $ref: '#/definitions/payment.CreateInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/payment.paymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+      summary: Create a Pix payment
+      tags:
+      - payments
+  /payments/{id}:
+    get:
+      parameters:
+      - description: Payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.paymentResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/payment.errorResponse'
+      summary: Get a payment by id
+      tags:
+      - payments
 swagger: "2.0"

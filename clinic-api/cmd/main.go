@@ -21,7 +21,9 @@ import (
 	"github.com/josuesantos1/desafio/internal/clinic"
 	"github.com/josuesantos1/desafio/internal/config"
 	"github.com/josuesantos1/desafio/internal/dentist"
+	"github.com/josuesantos1/desafio/internal/payment"
 	"github.com/josuesantos1/desafio/internal/server"
+	"github.com/josuesantos1/desafio/pkg/pix"
 )
 
 const shutdownTimeout = 10 * time.Second
@@ -41,10 +43,13 @@ func main() {
 
 	clinicRepo := clinic.NewPostgresRepository(db)
 	dentistRepo := dentist.NewPostgresRepository(db)
+	paymentRepo := payment.NewPostgresRepository(db)
+	pixClient := pix.NewClient(pix.Config{APIKey: "simulated"})
 
 	router.Route("/api", func(api chi.Router) {
 		clinic.RegisterRoutes(api, clinic.NewService(clinicRepo))
 		dentist.RegisterRoutes(api, dentist.NewService(dentistRepo, clinicRepo))
+		payment.RegisterRoutes(api, payment.NewService(paymentRepo, clinicRepo, dentistRepo, pixClient))
 	})
 
 	router.Get("/swagger/*", httpSwagger.WrapHandler)
