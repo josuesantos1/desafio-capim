@@ -48,13 +48,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/clinic.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/clinic.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -112,13 +112,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -162,19 +162,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -215,13 +215,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -272,19 +272,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -317,13 +317,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -376,19 +376,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/dentist.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -422,13 +422,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/clinic.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/clinic.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -472,13 +472,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/clinic.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/clinic.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -504,13 +504,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/clinic.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/clinic.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -530,6 +530,13 @@ const docTemplate = `{
                 "summary": "Create a Pix payment",
                 "parameters": [
                     {
+                        "type": "string",
+                        "description": "Idempotency key",
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
                         "description": "Payment to create",
                         "name": "payment",
                         "in": "body",
@@ -540,6 +547,12 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "replay of an existing payment",
+                        "schema": {
+                            "$ref": "#/definitions/payment.paymentResponse"
+                        }
+                    },
                     "201": {
                         "description": "Created",
                         "schema": {
@@ -549,13 +562,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/payment.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/payment.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -589,13 +608,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/payment.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/payment.errorResponse"
+                            "$ref": "#/definitions/problem.Details"
                         }
                     }
                 }
@@ -652,7 +671,6 @@ const docTemplate = `{
                     "$ref": "#/definitions/clinic.Banking"
                 },
                 "document": {
-                    "description": "Document is present only to detect an attempted change; it is\nnever applied to Clinic.Document.",
                     "type": "string"
                 },
                 "legal_name": {
@@ -702,23 +720,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "clinic.errorResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string"
-                },
-                "fields": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "message": {
                     "type": "string"
                 }
             }
@@ -794,23 +795,6 @@ const docTemplate = `{
                 }
             }
         },
-        "dentist.errorResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string"
-                },
-                "fields": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
         "dentist.listResponse": {
             "type": "object",
             "properties": {
@@ -845,23 +829,6 @@ const docTemplate = `{
                 }
             }
         },
-        "payment.errorResponse": {
-            "type": "object",
-            "properties": {
-                "error": {
-                    "type": "string"
-                },
-                "fields": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "message": {
-                    "type": "string"
-                }
-            }
-        },
         "payment.paymentResponse": {
             "type": "object",
             "properties": {
@@ -890,6 +857,43 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "problem.Details": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/problem.FieldError"
+                    }
+                },
+                "status": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "problem.FieldError": {
+            "type": "object",
+            "properties": {
+                "detail": {
+                    "type": "string"
+                },
+                "field": {
                     "type": "string"
                 }
             }

@@ -1,6 +1,4 @@
-// Package storage provides a generic, concurrency-safe in-memory
-// key-value store. It carries no business logic — soft delete,
-// uniqueness, and other domain rules are the caller's responsibility.
+// Package storage provides a generic, concurrency-safe in-memory key-value store.
 package storage
 
 import (
@@ -13,9 +11,6 @@ var (
 	ErrAlreadyExists = errors.New("storage: already exists")
 )
 
-// Store is a thread-safe map of string id to V. Read and All return
-// shallow copies — callers must not mutate a returned value through a
-// pointer field; every mutation must go through Update.
 type Store[V any] struct {
 	mu   sync.RWMutex
 	data map[string]V
@@ -70,8 +65,6 @@ func (s *Store[V]) Delete(id string) error {
 	return nil
 }
 
-// All returns a snapshot slice of every value currently stored, in
-// unspecified order.
 func (s *Store[V]) All() []V {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

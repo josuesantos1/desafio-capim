@@ -24,9 +24,6 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-// IsValidLogLevel reports whether level is a recognized log level
-// (case-insensitive). Exposed so callers (e.g. main) can decide whether
-// to warn about an invalid LOG_LEVEL without duplicating the valid set.
 func IsValidLogLevel(level string) bool {
 	switch strings.ToLower(level) {
 	case "debug", "info", "warn", "error":
