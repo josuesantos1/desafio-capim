@@ -16,8 +16,6 @@ var (
 )
 
 type Repository interface {
-	// Create returns ErrDocumentExists if another non-deleted clinic
-	// already has the same document.
 	Create(ctx context.Context, c Clinic) error
 	GetByID(ctx context.Context, id string) (Clinic, error)
 	GetByDocument(ctx context.Context, document string) (Clinic, error)
@@ -25,11 +23,6 @@ type Repository interface {
 	SoftDelete(ctx context.Context, id string, deletedAt time.Time) error
 }
 
-// memoryRepository serializes every write (Create/Update/SoftDelete/
-// Activate) under mu, since the uniqueness scan and the soft-delete
-// check-then-write need to be atomic — storage.Store only guarantees
-// atomicity for a single key operation, not for a compound sequence.
-// Reads (GetByID/GetByDocument) rely solely on the Store's own RLock.
 type memoryRepository struct {
 	mu    sync.Mutex
 	store *storage.Store[Clinic]
@@ -92,19 +85,6 @@ func (r *memoryRepository) SoftDelete(ctx context.Context, id string, deletedAt 
 	return r.store.Update(id, current)
 }
 
-// Activate is not part of Repository — it is an extra capability
-// exposed by the concrete type and consumed structurally by
-// internal/dentist's clinicActivator, mirroring the clinicGetter/
-// PixProvider pattern already used in this codebase. dentist owns the
-// pending -> active transition logic (it knows when a clinic gained
-// its last required admin/legal representative), so it needs write
-// access to clinic status without widening clinic.Repository's public
-// contract for a single internal caller.
-//
-// It is fire-and-forget: no error is returned for a clinic that
-// doesn't exist, is soft-deleted, or is already active — same as the
-// original SQL recompute statement, which never checked rows
-// affected.
 func (r *memoryRepository) Activate(ctx context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

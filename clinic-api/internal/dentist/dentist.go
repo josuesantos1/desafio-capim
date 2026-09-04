@@ -2,12 +2,6 @@ package dentist
 
 import "time"
 
-// Dentist is the domain type — no json tags. Serialization for the API
-// response format is handled by dto.go.
-//
-// IsAdministrator and IsLegalRepresentative are independent — a
-// dentist can hold both, either, or neither. There is no "dentist"
-// role value: both false is the default, common state.
 type Dentist struct {
 	ID                    string
 	ClinicID              string
@@ -33,8 +27,6 @@ type UpdateInput struct {
 	Email *string `json:"email"`
 }
 
-// RolesInput is the body of PATCH .../roles. At least one field must
-// be present (see validateRolesInput).
 type RolesInput struct {
 	IsAdministrator       *bool `json:"is_administrator,omitempty"`
 	IsLegalRepresentative *bool `json:"is_legal_representative,omitempty"`

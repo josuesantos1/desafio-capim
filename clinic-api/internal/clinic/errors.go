@@ -7,9 +7,6 @@ var (
 	ErrDocumentImmutable = errors.New("clinic: document is immutable")
 )
 
-// ValidationError wraps ErrValidation carrying the invalid fields and
-// their messages, so the handler can build the "fields" object of the
-// error response without re-deriving which fields failed.
 type ValidationError struct {
 	Fields map[string]string
 }

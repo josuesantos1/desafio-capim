@@ -26,25 +26,11 @@ type Repository interface {
 	List(ctx context.Context, clinicID string, params ListParams) (ListResult, error)
 }
 
-// clinicActivator extends the service-level clinicGetter (service.go)
-// with the write capability the repository needs to flip a clinic
-// from pending to active after a role change gives it both an
-// administrator and a legal representative — see
-// clinic.memoryRepository.Activate. dentist already depends on clinic
-// at the service layer (clinicGetter); this just makes the same
-// cross-domain dependency explicit at the repository layer too,
-// replacing what used to be raw SQL writing into the clinics table
-// from here.
 type clinicActivator interface {
 	clinicGetter
 	Activate(ctx context.Context, id string) error
 }
 
-// memoryRepository serializes every write (Create/Update/UpdateRoles/
-// SoftDelete) under mu — the guarded compound sequences (uniqueness
-// scan, last-admin/last-legal-rep invariant check) need atomicity that
-// storage.Store alone only gives per single-key operation. Reads
-// (GetByID/List) rely solely on the Store's own RLock.
 type memoryRepository struct {
 	mu      sync.Mutex
 	store   *storage.Store[Dentist]
@@ -203,9 +189,6 @@ func (r *memoryRepository) List(ctx context.Context, clinicID string, params Lis
 	return ListResult{Items: items[start:end], Total: total}, nil
 }
 
-// hasOtherActiveWithFlag and hasActiveWithFlag scan r.store.All() for
-// non-deleted dentists of clinicID matching flag. Call sites already
-// hold r.mu, so no additional locking is needed here.
 func (r *memoryRepository) hasOtherActiveWithFlag(clinicID, excludeID string, flag func(Dentist) bool) bool {
 	return slices.ContainsFunc(r.store.All(), func(d Dentist) bool {
 		return d.ClinicID == clinicID && d.ID != excludeID && d.DeletedAt == nil && flag(d)

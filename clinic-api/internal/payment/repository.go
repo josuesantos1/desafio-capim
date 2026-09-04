@@ -12,28 +12,11 @@ import (
 var ErrNotFound = errors.New("payment: not found")
 
 type Repository interface {
-	// Create is idempotency-aware: p.IdempotencyKey must be set. If a
-	// non-conflicting payment with the same IdempotencyKey already
-	// exists (same ClinicID, AmountCents, DentistID), Create returns
-	// that existing payment and created=false — no new payment is
-	// inserted. If an existing payment with the same IdempotencyKey
-	// has different business fields, Create returns
-	// ErrIdempotencyKeyConflict. Otherwise p is inserted and Create
-	// returns (p, true, nil). The existence check and the insert
-	// happen atomically under the same lock.
 	Create(ctx context.Context, p Payment) (result Payment, created bool, err error)
 	GetByID(ctx context.Context, id string) (Payment, error)
-	// Approve transitions status "pending" -> "approved". Returns
-	// ErrNotFound if the payment does not exist or is not "pending"
-	// (already approved — idempotency guard against duplicate runs).
 	Approve(ctx context.Context, id string, approvedAt time.Time) error
 }
 
-// memoryRepository serializes Create/Approve under mu — the guarded
-// compound sequences (clinic/dentist existence check, pending->approved
-// check-then-write) need atomicity that storage.Store alone only gives
-// per single-key operation. GetByID relies solely on the Store's own
-// RLock.
 type memoryRepository struct {
 	mu       sync.Mutex
 	store    *storage.Store[Payment]
@@ -75,8 +58,6 @@ func (r *memoryRepository) Create(ctx context.Context, p Payment) (Payment, bool
 	return p, true, nil
 }
 
-// sameDentistID compares two possibly-nil dentist ids by value, never
-// dereferencing without a nil check first.
 func sameDentistID(a, b *string) bool {
 	return (a == nil) == (b == nil) && (a == nil || *a == *b)
 }

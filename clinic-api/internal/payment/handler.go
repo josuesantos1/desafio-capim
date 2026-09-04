@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/josuesantos1/desafio/pkg/problem"
 )
 
 func RegisterRoutes(r chi.Router, svc *Service) {
@@ -21,7 +23,6 @@ type handler struct {
 	svc *Service
 }
 
-// create godoc
 // @Summary      Create a Pix payment
 // @Tags         payments
 // @Accept       json
@@ -30,20 +31,20 @@ type handler struct {
 // @Param        payment          body      CreateInput  true  "Payment to create"
 // @Success      201              {object}  paymentResponse
 // @Success      200              {object}  paymentResponse "replay of an existing payment"
-// @Failure      400              {object}  errorResponse
-// @Failure      404              {object}  errorResponse
-// @Failure      409              {object}  errorResponse
+// @Failure      400              {object}  problem.Details
+// @Failure      404              {object}  problem.Details
+// @Failure      409              {object}  problem.Details
 // @Router       /payments [post]
 func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	key := r.Header.Get("Idempotency-Key")
 	if strings.TrimSpace(key) == "" {
-		writeError(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key header is required", nil)
+		problem.Write(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key header is required", nil)
 		return
 	}
 
 	var in CreateInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
+		problem.Write(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
 		return
 	}
 
@@ -57,22 +58,21 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	if created {
 		status = http.StatusCreated
 	}
-	writeJSON(w, status, toPaymentResponse(p))
+	problem.WriteJSON(w, status, toPaymentResponse(p))
 }
 
-// get godoc
 // @Summary      Get a payment by id
 // @Tags         payments
 // @Produce      json
 // @Param        id   path      string  true  "Payment ID"
 // @Success      200  {object}  paymentResponse
-// @Failure      400  {object}  errorResponse
-// @Failure      404  {object}  errorResponse
+// @Failure      400  {object}  problem.Details
+// @Failure      404  {object}  problem.Details
 // @Router       /payments/{id} [get]
 func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if _, err := uuid.Parse(id); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_ID", "id must be a valid UUID", nil)
+		problem.Write(w, http.StatusBadRequest, "INVALID_ID", "id must be a valid UUID", nil)
 		return
 	}
 
@@ -82,36 +82,26 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toPaymentResponse(p))
+	problem.WriteJSON(w, http.StatusOK, toPaymentResponse(p))
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {
 	var validationErr *ValidationError
 	switch {
 	case errors.As(err, &validationErr):
-		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "request validation failed", validationErr.Fields)
+		problem.Write(w, http.StatusBadRequest, "VALIDATION_ERROR", "request validation failed", validationErr.Fields)
 	case errors.Is(err, ErrClinicNotFound):
-		writeError(w, http.StatusNotFound, "CLINIC_NOT_FOUND", "clinic not found", nil)
+		problem.Write(w, http.StatusNotFound, "CLINIC_NOT_FOUND", "clinic not found", nil)
 	case errors.Is(err, ErrClinicNotActive):
-		writeError(w, http.StatusConflict, "CLINIC_NOT_ACTIVE", "clinic must be active (have an administrator and a legal representative) to receive payments", nil)
+		problem.Write(w, http.StatusConflict, "CLINIC_NOT_ACTIVE", "clinic must be active (have an administrator and a legal representative) to receive payments", nil)
 	case errors.Is(err, ErrDentistNotFound):
-		writeError(w, http.StatusNotFound, "DENTIST_NOT_FOUND", "dentist not found", nil)
+		problem.Write(w, http.StatusNotFound, "DENTIST_NOT_FOUND", "dentist not found", nil)
 	case errors.Is(err, ErrIdempotencyKeyConflict):
-		writeError(w, http.StatusConflict, "IDEMPOTENCY_KEY_CONFLICT", "idempotency key already used with a different payload", nil)
+		problem.Write(w, http.StatusConflict, "IDEMPOTENCY_KEY_CONFLICT", "idempotency key already used with a different payload", nil)
 	case errors.Is(err, ErrNotFound):
-		writeError(w, http.StatusNotFound, "PAYMENT_NOT_FOUND", "payment not found", nil)
+		problem.Write(w, http.StatusNotFound, "PAYMENT_NOT_FOUND", "payment not found", nil)
 	default:
 		slog.Error("unclassified payment repository error", "error", err)
-		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error", nil)
+		problem.Write(w, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error", nil)
 	}
-}
-
-func writeError(w http.ResponseWriter, status int, code, message string, fields map[string]string) {
-	writeJSON(w, status, errorResponse{Error: code, Message: message, Fields: fields})
-}
-
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
 }

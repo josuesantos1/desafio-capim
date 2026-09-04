@@ -15,10 +15,6 @@ import (
 	"github.com/josuesantos1/desafio/pkg/pix"
 )
 
-// clinicGetter/dentistGetter mirror the minimal consumer-side
-// interfaces already established in internal/dentist — satisfied
-// structurally by clinic.Repository / dentist.Repository without an
-// adapter.
 type clinicGetter interface {
 	GetByID(ctx context.Context, id string) (clinic.Clinic, error)
 }
@@ -27,8 +23,6 @@ type dentistGetter interface {
 	GetByID(ctx context.Context, clinicID, id string) (dentist.Dentist, error)
 }
 
-// PixProvider is the minimal interface Service needs from a Pix
-// gateway — satisfied structurally by *pix.Client (pkg/pix).
 type PixProvider interface {
 	CreateCharge(ctx context.Context, req pix.ChargeRequest) (pix.ChargeResponse, error)
 }
@@ -41,9 +35,6 @@ type Service struct {
 	approvalDelay func() time.Duration
 }
 
-// Option configures optional Service behavior — currently only used
-// to override the approval delay in tests, so they don't need to
-// wait 2-5 real seconds for the background approval goroutine.
 type Option func(*Service)
 
 func WithApprovalDelay(f func() time.Duration) Option {
@@ -68,13 +59,6 @@ func randomApprovalDelay() time.Duration {
 	return time.Duration(2+rand.Intn(4)) * time.Second
 }
 
-// Create returns created=true if a new payment was inserted,
-// created=false if idempotencyKey matched an existing, identical
-// payment (replay). It always validates clinic/dentist state before
-// checking idempotency — a replay whose clinic/dentist state changed
-// since the original creation can still fail with the same error a
-// fresh creation would (see spec-idempotent-payments.md Business
-// Rule 7: accepted limitation, not a bug).
 func (s *Service) Create(ctx context.Context, idempotencyKey string, in CreateInput) (Payment, bool, error) {
 	if err := validateCreate(in); err != nil {
 		return Payment{}, false, err
@@ -143,10 +127,6 @@ func (s *Service) Get(ctx context.Context, id string) (Payment, error) {
 	return p, nil
 }
 
-// scheduleApproval simulates, in the background, the asynchronous
-// confirmation a real Pix webhook would deliver. It uses
-// context.Background() deliberately: the HTTP request context that
-// triggered Create is already gone by the time this runs.
 func (s *Service) scheduleApproval(id string) {
 	delay := s.approvalDelay()
 	go func() {

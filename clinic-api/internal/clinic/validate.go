@@ -2,7 +2,6 @@ package clinic
 
 import "strings"
 
-// normalizeDocument strips every non-digit character from doc.
 func normalizeDocument(doc string) string {
 	var b strings.Builder
 	for _, r := range doc {
@@ -59,8 +58,6 @@ func validateUpdate(in UpdateInput) error {
 	return nil
 }
 
-// validateBanking enforces the all-or-nothing rule: if Banking is
-// provided, bank/agency/account must all be non-empty.
 func validateBanking(b *Banking) (message string, invalid bool) {
 	if b == nil {
 		return "", false

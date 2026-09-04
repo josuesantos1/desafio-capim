@@ -27,9 +27,3 @@ func toPaymentResponse(p Payment) paymentResponse {
 		ApprovedAt: p.ApprovedAt,
 	}
 }
-
-type errorResponse struct {
-	Error   string            `json:"error"`
-	Message string            `json:"message"`
-	Fields  map[string]string `json:"fields,omitempty"`
-}

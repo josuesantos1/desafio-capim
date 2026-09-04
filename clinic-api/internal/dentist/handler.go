@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+
+	"github.com/josuesantos1/desafio/pkg/problem"
 )
 
 func RegisterRoutes(r chi.Router, svc *Service) {
@@ -25,7 +27,6 @@ type handler struct {
 	svc *Service
 }
 
-// create godoc
 // @Summary      Create a dentist in a clinic
 // @Tags         dentists
 // @Accept       json
@@ -33,9 +34,9 @@ type handler struct {
 // @Param        clinic_id  path      string       true  "Clinic ID"
 // @Param        dentist    body      CreateInput  true  "Dentist to create"
 // @Success      201        {object}  dentistResponse
-// @Failure      400        {object}  errorResponse
-// @Failure      404        {object}  errorResponse
-// @Failure      409        {object}  errorResponse
+// @Failure      400        {object}  problem.Details
+// @Failure      404        {object}  problem.Details
+// @Failure      409        {object}  problem.Details
 // @Router       /clinics/{clinic_id}/dentists [post]
 func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	clinicID, ok := parseUUID(w, chi.URLParam(r, "clinic_id"))
@@ -45,7 +46,7 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 
 	var in CreateInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
+		problem.Write(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
 		return
 	}
 
@@ -55,18 +56,17 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, toDentistResponse(d))
+	problem.WriteJSON(w, http.StatusCreated, toDentistResponse(d))
 }
 
-// get godoc
 // @Summary      Get a dentist by id
 // @Tags         dentists
 // @Produce      json
 // @Param        clinic_id  path      string  true  "Clinic ID"
 // @Param        id         path      string  true  "Dentist ID"
 // @Success      200        {object}  dentistResponse
-// @Failure      400        {object}  errorResponse
-// @Failure      404        {object}  errorResponse
+// @Failure      400        {object}  problem.Details
+// @Failure      404        {object}  problem.Details
 // @Router       /clinics/{clinic_id}/dentists/{id} [get]
 func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
@@ -80,10 +80,9 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toDentistResponse(d))
+	problem.WriteJSON(w, http.StatusOK, toDentistResponse(d))
 }
 
-// update godoc
 // @Summary      Update a dentist (partial)
 // @Tags         dentists
 // @Accept       json
@@ -92,9 +91,9 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 // @Param        id         path      string       true  "Dentist ID"
 // @Param        dentist    body      UpdateInput  true  "Fields to update"
 // @Success      200        {object}  dentistResponse
-// @Failure      400        {object}  errorResponse
-// @Failure      404        {object}  errorResponse
-// @Failure      409        {object}  errorResponse
+// @Failure      400        {object}  problem.Details
+// @Failure      404        {object}  problem.Details
+// @Failure      409        {object}  problem.Details
 // @Router       /clinics/{clinic_id}/dentists/{id} [put]
 func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
@@ -104,7 +103,7 @@ func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 
 	var in UpdateInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
+		problem.Write(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
 		return
 	}
 
@@ -114,10 +113,9 @@ func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toDentistResponse(d))
+	problem.WriteJSON(w, http.StatusOK, toDentistResponse(d))
 }
 
-// updateRoles godoc
 // @Summary      Update a dentist's administrator/legal representative flags
 // @Tags         dentists
 // @Accept       json
@@ -126,9 +124,9 @@ func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 // @Param        id         path      string      true  "Dentist ID"
 // @Param        roles      body      RolesInput  true  "Flags to update (at least one required)"
 // @Success      200        {object}  dentistResponse
-// @Failure      400        {object}  errorResponse
-// @Failure      404        {object}  errorResponse
-// @Failure      409        {object}  errorResponse
+// @Failure      400        {object}  problem.Details
+// @Failure      404        {object}  problem.Details
+// @Failure      409        {object}  problem.Details
 // @Router       /clinics/{clinic_id}/dentists/{id}/roles [patch]
 func (h *handler) updateRoles(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
@@ -138,7 +136,7 @@ func (h *handler) updateRoles(w http.ResponseWriter, r *http.Request) {
 
 	var in RolesInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
+		problem.Write(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
 		return
 	}
 
@@ -148,17 +146,16 @@ func (h *handler) updateRoles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toDentistResponse(d))
+	problem.WriteJSON(w, http.StatusOK, toDentistResponse(d))
 }
 
-// delete godoc
 // @Summary      Soft-delete a dentist
 // @Tags         dentists
 // @Param        clinic_id  path  string  true  "Clinic ID"
 // @Param        id         path  string  true  "Dentist ID"
 // @Success      204
-// @Failure      400  {object}  errorResponse
-// @Failure      404  {object}  errorResponse
+// @Failure      400  {object}  problem.Details
+// @Failure      404  {object}  problem.Details
 // @Router       /clinics/{clinic_id}/dentists/{id} [delete]
 func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
@@ -174,7 +171,6 @@ func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// list godoc
 // @Summary      List dentists of a clinic (paginated)
 // @Tags         dentists
 // @Produce      json
@@ -184,8 +180,8 @@ func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 // @Param        is_administrator        query  bool  false  "Filter by administrator flag"
 // @Param        is_legal_representative query  bool  false  "Filter by legal representative flag"
 // @Success      200        {object}  listResponse
-// @Failure      400        {object}  errorResponse
-// @Failure      404        {object}  errorResponse
+// @Failure      400        {object}  problem.Details
+// @Failure      404        {object}  problem.Details
 // @Router       /clinics/{clinic_id}/dentists [get]
 func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	clinicID, ok := parseUUID(w, chi.URLParam(r, "clinic_id"))
@@ -206,7 +202,7 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, toListResponse(result, params))
+	problem.WriteJSON(w, http.StatusOK, toListResponse(result, params))
 }
 
 func parseQueryInt(r *http.Request, key string) int {
@@ -217,9 +213,6 @@ func parseQueryInt(r *http.Request, key string) int {
 	return v
 }
 
-// parseQueryBoolPtr returns nil when the query param is absent or
-// unparseable — same silent-default convention as parseQueryInt — so
-// an invalid value means "no filter", not an error.
 func parseQueryBoolPtr(r *http.Request, key string) *bool {
 	raw := r.URL.Query().Get(key)
 	if raw == "" {
@@ -246,7 +239,7 @@ func parsePathIDs(w http.ResponseWriter, r *http.Request) (clinicID, id string, 
 
 func parseUUID(w http.ResponseWriter, raw string) (string, bool) {
 	if _, err := uuid.Parse(raw); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_ID", "id must be a valid UUID", nil)
+		problem.Write(w, http.StatusBadRequest, "INVALID_ID", "id must be a valid UUID", nil)
 		return "", false
 	}
 	return raw, true
@@ -256,29 +249,19 @@ func writeDomainError(w http.ResponseWriter, err error) {
 	var validationErr *ValidationError
 	switch {
 	case errors.As(err, &validationErr):
-		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "request validation failed", validationErr.Fields)
+		problem.Write(w, http.StatusBadRequest, "VALIDATION_ERROR", "request validation failed", validationErr.Fields)
 	case errors.Is(err, ErrClinicNotFound):
-		writeError(w, http.StatusNotFound, "CLINIC_NOT_FOUND", "clinic not found", nil)
+		problem.Write(w, http.StatusNotFound, "CLINIC_NOT_FOUND", "clinic not found", nil)
 	case errors.Is(err, ErrEmailExists):
-		writeError(w, http.StatusConflict, "EMAIL_ALREADY_EXISTS", "email already belongs to another dentist in this clinic", nil)
+		problem.Write(w, http.StatusConflict, "EMAIL_ALREADY_EXISTS", "email already belongs to another dentist in this clinic", nil)
 	case errors.Is(err, ErrNotFound):
-		writeError(w, http.StatusNotFound, "DENTIST_NOT_FOUND", "dentist not found", nil)
+		problem.Write(w, http.StatusNotFound, "DENTIST_NOT_FOUND", "dentist not found", nil)
 	case errors.Is(err, ErrLastAdminRequired):
-		writeError(w, http.StatusConflict, "LAST_ADMIN_REQUIRED", "clinic must keep at least one active administrator", nil)
+		problem.Write(w, http.StatusConflict, "LAST_ADMIN_REQUIRED", "clinic must keep at least one active administrator", nil)
 	case errors.Is(err, ErrLastLegalRepresentativeRequired):
-		writeError(w, http.StatusConflict, "LAST_LEGAL_REPRESENTATIVE_REQUIRED", "clinic must keep at least one active legal representative", nil)
+		problem.Write(w, http.StatusConflict, "LAST_LEGAL_REPRESENTATIVE_REQUIRED", "clinic must keep at least one active legal representative", nil)
 	default:
 		slog.Error("unclassified dentist repository error", "error", err)
-		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error", nil)
+		problem.Write(w, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error", nil)
 	}
-}
-
-func writeError(w http.ResponseWriter, status int, code, message string, fields map[string]string) {
-	writeJSON(w, status, errorResponse{Error: code, Message: message, Fields: fields})
-}
-
-func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
 }

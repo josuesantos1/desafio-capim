@@ -34,9 +34,3 @@ func toClinicResponse(c Clinic) clinicResponse {
 	}
 	return resp
 }
-
-type errorResponse struct {
-	Error   string            `json:"error"`
-	Message string            `json:"message"`
-	Fields  map[string]string `json:"fields,omitempty"`
-}

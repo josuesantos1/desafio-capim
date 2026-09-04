@@ -11,12 +11,6 @@ import (
 	"github.com/josuesantos1/desafio/internal/clinic"
 )
 
-// clinicGetter is the minimal consumer-side interface dentist needs
-// from internal/clinic — only existence/activity lookup, not the full
-// clinic.Repository. clinic.Repository already satisfies this
-// interface structurally, so callers (including tests, via the
-// existing clinic mock) pass a clinic.Repository value without any
-// adapter.
 type clinicGetter interface {
 	GetByID(ctx context.Context, id string) (clinic.Clinic, error)
 }

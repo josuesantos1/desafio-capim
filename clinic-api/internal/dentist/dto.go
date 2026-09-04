@@ -47,9 +47,3 @@ func toListResponse(result ListResult, params ListParams) listResponse {
 		Offset: params.Offset,
 	}
 }
-
-type errorResponse struct {
-	Error   string            `json:"error"`
-	Message string            `json:"message"`
-	Fields  map[string]string `json:"fields,omitempty"`
-}

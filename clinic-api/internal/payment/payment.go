@@ -7,8 +7,6 @@ const (
 	StatusApproved = "approved"
 )
 
-// Payment is the domain type — no json tags. Serialization is
-// handled by dto.go.
 type Payment struct {
 	ID             string
 	ClinicID       string
