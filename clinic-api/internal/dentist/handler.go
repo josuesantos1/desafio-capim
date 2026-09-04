@@ -17,6 +17,7 @@ func RegisterRoutes(r chi.Router, svc *Service) {
 	r.Get("/clinics/{clinic_id}/dentists", h.list)
 	r.Get("/clinics/{clinic_id}/dentists/{id}", h.get)
 	r.Put("/clinics/{clinic_id}/dentists/{id}", h.update)
+	r.Patch("/clinics/{clinic_id}/dentists/{id}/roles", h.updateRoles)
 	r.Delete("/clinics/{clinic_id}/dentists/{id}", h.delete)
 }
 
@@ -116,6 +117,40 @@ func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toDentistResponse(d))
 }
 
+// updateRoles godoc
+// @Summary      Update a dentist's administrator/legal representative flags
+// @Tags         dentists
+// @Accept       json
+// @Produce      json
+// @Param        clinic_id  path      string      true  "Clinic ID"
+// @Param        id         path      string      true  "Dentist ID"
+// @Param        roles      body      RolesInput  true  "Flags to update (at least one required)"
+// @Success      200        {object}  dentistResponse
+// @Failure      400        {object}  errorResponse
+// @Failure      404        {object}  errorResponse
+// @Failure      409        {object}  errorResponse
+// @Router       /clinics/{clinic_id}/dentists/{id}/roles [patch]
+func (h *handler) updateRoles(w http.ResponseWriter, r *http.Request) {
+	clinicID, id, ok := parsePathIDs(w, r)
+	if !ok {
+		return
+	}
+
+	var in RolesInput
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
+		return
+	}
+
+	d, err := h.svc.UpdateRoles(r.Context(), clinicID, id, in)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, toDentistResponse(d))
+}
+
 // delete godoc
 // @Summary      Soft-delete a dentist
 // @Tags         dentists
@@ -146,6 +181,8 @@ func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 // @Param        clinic_id  path      string  true   "Clinic ID"
 // @Param        limit      query     int     false  "Page size (default 20, max 100)"
 // @Param        offset     query     int     false  "Offset (default 0)"
+// @Param        is_administrator        query  bool  false  "Filter by administrator flag"
+// @Param        is_legal_representative query  bool  false  "Filter by legal representative flag"
 // @Success      200        {object}  listResponse
 // @Failure      400        {object}  errorResponse
 // @Failure      404        {object}  errorResponse
@@ -157,8 +194,10 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	}
 
 	params := ListParams{
-		Limit:  clampLimit(parseQueryInt(r, "limit")),
-		Offset: clampOffset(parseQueryInt(r, "offset")),
+		Limit:                 clampLimit(parseQueryInt(r, "limit")),
+		Offset:                clampOffset(parseQueryInt(r, "offset")),
+		IsAdministrator:       parseQueryBoolPtr(r, "is_administrator"),
+		IsLegalRepresentative: parseQueryBoolPtr(r, "is_legal_representative"),
 	}
 
 	result, err := h.svc.List(r.Context(), clinicID, params)
@@ -176,6 +215,21 @@ func parseQueryInt(r *http.Request, key string) int {
 		return 0
 	}
 	return v
+}
+
+// parseQueryBoolPtr returns nil when the query param is absent or
+// unparseable — same silent-default convention as parseQueryInt — so
+// an invalid value means "no filter", not an error.
+func parseQueryBoolPtr(r *http.Request, key string) *bool {
+	raw := r.URL.Query().Get(key)
+	if raw == "" {
+		return nil
+	}
+	v, err := strconv.ParseBool(raw)
+	if err != nil {
+		return nil
+	}
+	return &v
 }
 
 func parsePathIDs(w http.ResponseWriter, r *http.Request) (clinicID, id string, ok bool) {
@@ -209,6 +263,10 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, "EMAIL_ALREADY_EXISTS", "email already belongs to another dentist in this clinic", nil)
 	case errors.Is(err, ErrNotFound):
 		writeError(w, http.StatusNotFound, "DENTIST_NOT_FOUND", "dentist not found", nil)
+	case errors.Is(err, ErrLastAdminRequired):
+		writeError(w, http.StatusConflict, "LAST_ADMIN_REQUIRED", "clinic must keep at least one active administrator", nil)
+	case errors.Is(err, ErrLastLegalRepresentativeRequired):
+		writeError(w, http.StatusConflict, "LAST_LEGAL_REPRESENTATIVE_REQUIRED", "clinic must keep at least one active legal representative", nil)
 	default:
 		slog.Error("unclassified dentist repository error", "error", err)
 		writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "internal server error", nil)

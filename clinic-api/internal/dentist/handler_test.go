@@ -239,6 +239,86 @@ func TestHandler_UpdateDentist(t *testing.T) {
 	}
 }
 
+func TestHandler_UpdateRoles(t *testing.T) {
+	updated := dentist.Dentist{ID: handlerDentistID, ClinicID: handlerClinicID, IsAdministrator: true}
+
+	tests := []struct {
+		name        string
+		body        string
+		setupRepo   func(repo *mocks.DentistRepository)
+		setupClinic func(clinicRepo *mocks.Repository)
+		wantStatus  int
+		wantError   string
+	}{
+		{
+			name: "success",
+			body: `{"is_administrator":true}`,
+			setupRepo: func(repo *mocks.DentistRepository) {
+				repo.EXPECT().UpdateRoles(mock.Anything, handlerClinicID, handlerDentistID, mock.Anything).
+					Return(updated, nil).Once()
+			},
+			setupClinic: expectClinicActiveHandler,
+			wantStatus:  http.StatusOK,
+		},
+		{
+			name:        "validation error — empty body",
+			body:        `{}`,
+			setupRepo:   func(repo *mocks.DentistRepository) {},
+			setupClinic: expectClinicActiveHandler,
+			wantStatus:  http.StatusBadRequest,
+			wantError:   "VALIDATION_ERROR",
+		},
+		{
+			name:        "clinic not found",
+			body:        `{"is_administrator":true}`,
+			setupRepo:   func(repo *mocks.DentistRepository) {},
+			setupClinic: expectClinicNotFoundHandler,
+			wantStatus:  http.StatusNotFound,
+			wantError:   "CLINIC_NOT_FOUND",
+		},
+		{
+			name: "last admin required",
+			body: `{"is_administrator":false}`,
+			setupRepo: func(repo *mocks.DentistRepository) {
+				repo.EXPECT().UpdateRoles(mock.Anything, handlerClinicID, handlerDentistID, mock.Anything).
+					Return(dentist.Dentist{}, dentist.ErrLastAdminRequired).Once()
+			},
+			setupClinic: expectClinicActiveHandler,
+			wantStatus:  http.StatusConflict,
+			wantError:   "LAST_ADMIN_REQUIRED",
+		},
+		{
+			name: "last legal representative required",
+			body: `{"is_legal_representative":false}`,
+			setupRepo: func(repo *mocks.DentistRepository) {
+				repo.EXPECT().UpdateRoles(mock.Anything, handlerClinicID, handlerDentistID, mock.Anything).
+					Return(dentist.Dentist{}, dentist.ErrLastLegalRepresentativeRequired).Once()
+			},
+			setupClinic: expectClinicActiveHandler,
+			wantStatus:  http.StatusConflict,
+			wantError:   "LAST_LEGAL_REPRESENTATIVE_REQUIRED",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, repo, clinicRepo := newTestRouter(t)
+			tt.setupRepo(repo)
+			tt.setupClinic(clinicRepo)
+
+			path := fmt.Sprintf("/clinics/%s/dentists/%s/roles", handlerClinicID, handlerDentistID)
+			req := httptest.NewRequest(http.MethodPatch, path, bytes.NewBufferString(tt.body))
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
+
+			require.Equal(t, tt.wantStatus, rec.Code, "body=%s", rec.Body.String())
+			if tt.wantError != "" {
+				require.Contains(t, rec.Body.String(), tt.wantError)
+			}
+		})
+	}
+}
+
 func TestHandler_DeleteDentist(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -332,6 +412,30 @@ func TestHandler_ListDentists(t *testing.T) {
 			setupClinic: expectClinicActiveHandler,
 			wantStatus:  http.StatusOK,
 			wantBody:    `"limit":100`,
+		},
+		{
+			name:  "filters by is_administrator",
+			query: "?is_administrator=true",
+			setupRepo: func(repo *mocks.DentistRepository) {
+				repo.EXPECT().List(mock.Anything, handlerClinicID, mock.MatchedBy(func(p dentist.ListParams) bool {
+					return p.IsAdministrator != nil && *p.IsAdministrator == true && p.IsLegalRepresentative == nil
+				})).Return(dentist.ListResult{}, nil).Once()
+			},
+			setupClinic: expectClinicActiveHandler,
+			wantStatus:  http.StatusOK,
+			wantBody:    `"total":0`,
+		},
+		{
+			name:  "invalid filter value is treated as absent",
+			query: "?is_administrator=not-a-bool",
+			setupRepo: func(repo *mocks.DentistRepository) {
+				repo.EXPECT().List(mock.Anything, handlerClinicID, mock.MatchedBy(func(p dentist.ListParams) bool {
+					return p.IsAdministrator == nil
+				})).Return(dentist.ListResult{}, nil).Once()
+			},
+			setupClinic: expectClinicActiveHandler,
+			wantStatus:  http.StatusOK,
+			wantBody:    `"total":0`,
 		},
 	}
 

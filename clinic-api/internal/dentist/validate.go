@@ -21,6 +21,15 @@ func validateCreate(in CreateInput) error {
 	return nil
 }
 
+func validateRolesInput(in RolesInput) error {
+	if in.IsAdministrator == nil && in.IsLegalRepresentative == nil {
+		return &ValidationError{Fields: map[string]string{
+			"roles": "at least one of is_administrator, is_legal_representative must be present",
+		}}
+	}
+	return nil
+}
+
 func validateUpdate(in UpdateInput) error {
 	fields := map[string]string{}
 

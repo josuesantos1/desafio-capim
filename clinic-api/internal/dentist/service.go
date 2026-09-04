@@ -98,6 +98,21 @@ func (s *Service) Update(ctx context.Context, clinicID, id string, in UpdateInpu
 	return current, nil
 }
 
+func (s *Service) UpdateRoles(ctx context.Context, clinicID, id string, in RolesInput) (Dentist, error) {
+	if err := s.checkClinicActive(ctx, clinicID); err != nil {
+		return Dentist{}, err
+	}
+	if err := validateRolesInput(in); err != nil {
+		return Dentist{}, err
+	}
+
+	d, err := s.repo.UpdateRoles(ctx, clinicID, id, in)
+	if err != nil {
+		return Dentist{}, fmt.Errorf("dentist: update roles: %w", err)
+	}
+	return d, nil
+}
+
 func (s *Service) Delete(ctx context.Context, clinicID, id string) error {
 	if err := s.checkClinicActive(ctx, clinicID); err != nil {
 		return err

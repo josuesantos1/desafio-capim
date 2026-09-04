@@ -37,6 +37,36 @@ func TestValidateCreate(t *testing.T) {
 	}
 }
 
+func TestValidateRolesInput(t *testing.T) {
+	yes := true
+	no := false
+
+	tests := []struct {
+		name    string
+		in      RolesInput
+		wantErr bool
+	}{
+		{name: "both absent is invalid", in: RolesInput{}, wantErr: true},
+		{name: "only is_administrator present", in: RolesInput{IsAdministrator: &yes}},
+		{name: "only is_legal_representative present", in: RolesInput{IsLegalRepresentative: &no}},
+		{name: "both present", in: RolesInput{IsAdministrator: &yes, IsLegalRepresentative: &no}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateRolesInput(tt.in)
+
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			var ve *ValidationError
+			require.True(t, errors.As(err, &ve))
+			assert.Contains(t, ve.Fields, "roles")
+		})
+	}
+}
+
 func TestValidateUpdate(t *testing.T) {
 	empty := ""
 	valid := "value"

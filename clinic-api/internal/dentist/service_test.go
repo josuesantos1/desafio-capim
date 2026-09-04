@@ -249,6 +249,78 @@ func TestService_Update(t *testing.T) {
 	}
 }
 
+func TestService_UpdateRoles(t *testing.T) {
+	yes := true
+	no := false
+	updated := dentist.Dentist{ID: "dentist-1", ClinicID: testClinicID, IsAdministrator: true}
+
+	tests := []struct {
+		name              string
+		in                dentist.RolesInput
+		setupRepo         func(repo *mocks.DentistRepository)
+		setupClinic       func(clinicRepo *mocks.Repository)
+		wantErr           error
+		wantValidationErr bool
+	}{
+		{
+			name: "success",
+			in:   dentist.RolesInput{IsAdministrator: &yes},
+			setupRepo: func(repo *mocks.DentistRepository) {
+				repo.EXPECT().UpdateRoles(mock.Anything, testClinicID, "dentist-1", dentist.RolesInput{IsAdministrator: &yes}).
+					Return(updated, nil).Once()
+			},
+			setupClinic: expectClinicActive,
+		},
+		{
+			name:        "clinic not found",
+			in:          dentist.RolesInput{IsAdministrator: &yes},
+			setupRepo:   func(repo *mocks.DentistRepository) {},
+			setupClinic: expectClinicNotFound,
+			wantErr:     dentist.ErrClinicNotFound,
+		},
+		{
+			name:              "validation error — no fields",
+			in:                dentist.RolesInput{},
+			setupRepo:         func(repo *mocks.DentistRepository) {},
+			setupClinic:       expectClinicActive,
+			wantValidationErr: true,
+		},
+		{
+			name: "last admin required",
+			in:   dentist.RolesInput{IsAdministrator: &no},
+			setupRepo: func(repo *mocks.DentistRepository) {
+				repo.EXPECT().UpdateRoles(mock.Anything, testClinicID, "dentist-1", dentist.RolesInput{IsAdministrator: &no}).
+					Return(dentist.Dentist{}, dentist.ErrLastAdminRequired).Once()
+			},
+			setupClinic: expectClinicActive,
+			wantErr:     dentist.ErrLastAdminRequired,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := mocks.NewDentistRepository(t)
+			clinicRepo := mocks.NewRepository(t)
+			tt.setupRepo(repo)
+			tt.setupClinic(clinicRepo)
+			svc := dentist.NewService(repo, clinicRepo)
+
+			d, err := svc.UpdateRoles(context.Background(), testClinicID, "dentist-1", tt.in)
+
+			switch {
+			case tt.wantValidationErr:
+				var ve *dentist.ValidationError
+				require.True(t, errors.As(err, &ve))
+			case tt.wantErr != nil:
+				require.ErrorIs(t, err, tt.wantErr)
+			default:
+				require.NoError(t, err)
+				assert.True(t, d.IsAdministrator)
+			}
+		})
+	}
+}
+
 func TestService_Delete(t *testing.T) {
 	tests := []struct {
 		name        string
