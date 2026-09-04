@@ -20,6 +20,7 @@ import (
 const (
 	testClinicID  = "11111111-1111-1111-1111-111111111111"
 	testDentistID = "22222222-2222-2222-2222-222222222222"
+	testIdemKey   = "test-idem-key"
 )
 
 // fakePixProvider is a hand-written fake — PixProvider has a single
@@ -37,6 +38,17 @@ func newFakePixProvider() *fakePixProvider {
 	return &fakePixProvider{response: pix.ChargeResponse{CopyPasteCode: "00020126fake=="}}
 }
 
+// createReturnsNew makes the mock's Create behave like a real
+// insertion: it returns the same Payment it received, created=true —
+// preserving p.ID/PixCode so assertions on the returned value work
+// without hardcoding a full Payment.
+func createReturnsNew(repo *mocks.PaymentRepository) {
+	repo.EXPECT().Create(mock.Anything, mock.Anything).
+		RunAndReturn(func(_ context.Context, p payment.Payment) (payment.Payment, bool, error) {
+			return p, true, nil
+		}).Once()
+}
+
 func TestService_Create(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -46,24 +58,23 @@ func TestService_Create(t *testing.T) {
 		setupDentist      func(dentistRepo *mocks.DentistRepository)
 		wantErr           error
 		wantValidationErr bool
+		wantCreated       bool
 	}{
 		{
-			name: "success without dentist",
-			in:   payment.CreateInput{ClinicID: testClinicID, Amount: 15000},
-			setupRepo: func(repo *mocks.PaymentRepository) {
-				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
-			},
+			name:        "success without dentist",
+			in:          payment.CreateInput{ClinicID: testClinicID, Amount: 15000},
+			setupRepo:   createReturnsNew,
+			wantCreated: true,
 			setupClinic: func(clinicRepo *mocks.Repository) {
 				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
 			},
 			setupDentist: func(dentistRepo *mocks.DentistRepository) {},
 		},
 		{
-			name: "success with dentist",
-			in:   payment.CreateInput{ClinicID: testClinicID, Amount: 15000, DentistID: strPtr(testDentistID)},
-			setupRepo: func(repo *mocks.PaymentRepository) {
-				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
-			},
+			name:        "success with dentist",
+			in:          payment.CreateInput{ClinicID: testClinicID, Amount: 15000, DentistID: strPtr(testDentistID)},
+			setupRepo:   createReturnsNew,
+			wantCreated: true,
 			setupClinic: func(clinicRepo *mocks.Repository) {
 				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
 			},
@@ -71,6 +82,31 @@ func TestService_Create(t *testing.T) {
 				dentistRepo.EXPECT().GetByID(mock.Anything, testClinicID, testDentistID).
 					Return(dentist.Dentist{ID: testDentistID, ClinicID: testClinicID}, nil).Once()
 			},
+		},
+		{
+			name: "replay: repo reports created=false, returns the existing payment",
+			in:   payment.CreateInput{ClinicID: testClinicID, Amount: 15000},
+			setupRepo: func(repo *mocks.PaymentRepository) {
+				existing := payment.Payment{ID: "original-id", ClinicID: testClinicID, AmountCents: 15000, Status: payment.StatusPending, PixCode: "original-code"}
+				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(existing, false, nil).Once()
+			},
+			setupClinic: func(clinicRepo *mocks.Repository) {
+				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
+			},
+			setupDentist: func(dentistRepo *mocks.DentistRepository) {},
+			wantCreated:  false,
+		},
+		{
+			name: "conflict: repo returns ErrIdempotencyKeyConflict",
+			in:   payment.CreateInput{ClinicID: testClinicID, Amount: 15000},
+			setupRepo: func(repo *mocks.PaymentRepository) {
+				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(payment.Payment{}, false, payment.ErrIdempotencyKeyConflict).Once()
+			},
+			setupClinic: func(clinicRepo *mocks.Repository) {
+				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
+			},
+			setupDentist: func(dentistRepo *mocks.DentistRepository) {},
+			wantErr:      payment.ErrIdempotencyKeyConflict,
 		},
 		{
 			name:      "clinic not found",
@@ -131,7 +167,7 @@ func TestService_Create(t *testing.T) {
 			svc := payment.NewService(repo, clinicRepo, dentistRepo, newFakePixProvider(),
 				payment.WithApprovalDelay(func() time.Duration { return time.Hour }))
 
-			p, err := svc.Create(context.Background(), tt.in)
+			p, created, err := svc.Create(context.Background(), testIdemKey, tt.in)
 
 			switch {
 			case tt.wantValidationErr:
@@ -141,6 +177,7 @@ func TestService_Create(t *testing.T) {
 				require.ErrorIs(t, err, tt.wantErr)
 			default:
 				require.NoError(t, err)
+				assert.Equal(t, tt.wantCreated, created)
 				assert.NotEmpty(t, p.ID)
 				assert.Equal(t, payment.StatusPending, p.Status)
 				assert.NotEmpty(t, p.PixCode)
@@ -202,7 +239,7 @@ func TestService_Create_SchedulesBackgroundApproval(t *testing.T) {
 	dentistRepo := mocks.NewDentistRepository(t)
 
 	clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
-	repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+	createReturnsNew(repo)
 
 	approved := make(chan struct{})
 	repo.EXPECT().Approve(mock.Anything, mock.Anything, mock.AnythingOfType("time.Time")).
@@ -212,14 +249,38 @@ func TestService_Create_SchedulesBackgroundApproval(t *testing.T) {
 	svc := payment.NewService(repo, clinicRepo, dentistRepo, newFakePixProvider(),
 		payment.WithApprovalDelay(func() time.Duration { return 0 }))
 
-	_, err := svc.Create(context.Background(), payment.CreateInput{ClinicID: testClinicID, Amount: 15000})
+	_, created, err := svc.Create(context.Background(), testIdemKey, payment.CreateInput{ClinicID: testClinicID, Amount: 15000})
 	require.NoError(t, err)
+	require.True(t, created)
 
 	select {
 	case <-approved:
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for background approval to run")
 	}
+}
+
+func TestService_Create_ReplayDoesNotScheduleApproval(t *testing.T) {
+	repo := mocks.NewPaymentRepository(t)
+	clinicRepo := mocks.NewRepository(t)
+	dentistRepo := mocks.NewDentistRepository(t)
+
+	clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
+	existing := payment.Payment{ID: "original-id", ClinicID: testClinicID, AmountCents: 15000, Status: payment.StatusPending, PixCode: "original-code"}
+	repo.EXPECT().Create(mock.Anything, mock.Anything).Return(existing, false, nil).Once()
+	// No Approve expectation set: a mockery-generated mock panics on an
+	// unexpected call, so this asserts scheduleApproval was never
+	// invoked for a replay.
+
+	svc := payment.NewService(repo, clinicRepo, dentistRepo, newFakePixProvider(),
+		payment.WithApprovalDelay(func() time.Duration { return 0 }))
+
+	p, created, err := svc.Create(context.Background(), testIdemKey, payment.CreateInput{ClinicID: testClinicID, Amount: 15000})
+	require.NoError(t, err)
+	require.False(t, created)
+	require.Equal(t, existing.ID, p.ID)
+
+	time.Sleep(50 * time.Millisecond)
 }
 
 func strPtr(s string) *string { return &s }

@@ -12,7 +12,16 @@ import (
 var ErrNotFound = errors.New("payment: not found")
 
 type Repository interface {
-	Create(ctx context.Context, p Payment) error
+	// Create is idempotency-aware: p.IdempotencyKey must be set. If a
+	// non-conflicting payment with the same IdempotencyKey already
+	// exists (same ClinicID, AmountCents, DentistID), Create returns
+	// that existing payment and created=false — no new payment is
+	// inserted. If an existing payment with the same IdempotencyKey
+	// has different business fields, Create returns
+	// ErrIdempotencyKeyConflict. Otherwise p is inserted and Create
+	// returns (p, true, nil). The existence check and the insert
+	// happen atomically under the same lock.
+	Create(ctx context.Context, p Payment) (result Payment, created bool, err error)
 	GetByID(ctx context.Context, id string) (Payment, error)
 	// Approve transitions status "pending" -> "approved". Returns
 	// ErrNotFound if the payment does not exist or is not "pending"
@@ -36,19 +45,40 @@ func NewMemoryRepository(clinics clinicGetter, dentists dentistGetter) *memoryRe
 	return &memoryRepository{store: storage.New[Payment](), clinics: clinics, dentists: dentists}
 }
 
-func (r *memoryRepository) Create(ctx context.Context, p Payment) error {
+func (r *memoryRepository) Create(ctx context.Context, p Payment) (Payment, bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	for _, existing := range r.store.All() {
+		if existing.IdempotencyKey != p.IdempotencyKey {
+			continue
+		}
+		if existing.ClinicID == p.ClinicID &&
+			existing.AmountCents == p.AmountCents &&
+			sameDentistID(existing.DentistID, p.DentistID) {
+			return existing, false, nil
+		}
+		return Payment{}, false, ErrIdempotencyKeyConflict
+	}
+
 	if _, err := r.clinics.GetByID(ctx, p.ClinicID); err != nil {
-		return ErrNotFound
+		return Payment{}, false, ErrNotFound
 	}
 	if p.DentistID != nil {
 		if _, err := r.dentists.GetByID(ctx, p.ClinicID, *p.DentistID); err != nil {
-			return ErrNotFound
+			return Payment{}, false, ErrNotFound
 		}
 	}
-	return r.store.Insert(p.ID, p)
+	if err := r.store.Insert(p.ID, p); err != nil {
+		return Payment{}, false, err
+	}
+	return p, true, nil
+}
+
+// sameDentistID compares two possibly-nil dentist ids by value, never
+// dereferencing without a nil check first.
+func sameDentistID(a, b *string) bool {
+	return (a == nil) == (b == nil) && (a == nil || *a == *b)
 }
 
 func (r *memoryRepository) GetByID(ctx context.Context, id string) (Payment, error) {

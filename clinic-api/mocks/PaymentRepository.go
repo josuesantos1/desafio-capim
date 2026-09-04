@@ -103,20 +103,35 @@ func (_c *PaymentRepository_Approve_Call) RunAndReturn(run func(ctx context.Cont
 }
 
 // Create provides a mock function for the type PaymentRepository
-func (_mock *PaymentRepository) Create(ctx context.Context, p payment.Payment) error {
+func (_mock *PaymentRepository) Create(ctx context.Context, p payment.Payment) (payment.Payment, bool, error) {
 	ret := _mock.Called(ctx, p)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Create")
 	}
 
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, payment.Payment) error); ok {
+	var r0 payment.Payment
+	var r1 bool
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, payment.Payment) (payment.Payment, bool, error)); ok {
+		return returnFunc(ctx, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, payment.Payment) payment.Payment); ok {
 		r0 = returnFunc(ctx, p)
 	} else {
-		r0 = ret.Error(0)
+		r0 = ret.Get(0).(payment.Payment)
 	}
-	return r0
+	if returnFunc, ok := ret.Get(1).(func(context.Context, payment.Payment) bool); ok {
+		r1 = returnFunc(ctx, p)
+	} else {
+		r1 = ret.Get(1).(bool)
+	}
+	if returnFunc, ok := ret.Get(2).(func(context.Context, payment.Payment) error); ok {
+		r2 = returnFunc(ctx, p)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
 }
 
 // PaymentRepository_Create_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Create'
@@ -149,12 +164,12 @@ func (_c *PaymentRepository_Create_Call) Run(run func(ctx context.Context, p pay
 	return _c
 }
 
-func (_c *PaymentRepository_Create_Call) Return(err error) *PaymentRepository_Create_Call {
-	_c.Call.Return(err)
+func (_c *PaymentRepository_Create_Call) Return(result payment.Payment, created bool, err error) *PaymentRepository_Create_Call {
+	_c.Call.Return(result, created, err)
 	return _c
 }
 
-func (_c *PaymentRepository_Create_Call) RunAndReturn(run func(ctx context.Context, p payment.Payment) error) *PaymentRepository_Create_Call {
+func (_c *PaymentRepository_Create_Call) RunAndReturn(run func(ctx context.Context, p payment.Payment) (payment.Payment, bool, error)) *PaymentRepository_Create_Call {
 	_c.Call.Return(run)
 	return _c
 }

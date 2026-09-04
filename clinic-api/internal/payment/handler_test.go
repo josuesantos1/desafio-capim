@@ -34,6 +34,7 @@ func TestHandler_CreatePayment(t *testing.T) {
 	tests := []struct {
 		name        string
 		body        string
+		skipHeader  bool
 		setupRepo   func(repo *mocks.PaymentRepository)
 		setupClinic func(clinicRepo *mocks.Repository)
 		wantStatus  int
@@ -43,12 +44,48 @@ func TestHandler_CreatePayment(t *testing.T) {
 			name: "success",
 			body: `{"clinic_id":"` + clinicID + `","amount":15000}`,
 			setupRepo: func(repo *mocks.PaymentRepository) {
-				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+				repo.EXPECT().Create(mock.Anything, mock.Anything).
+					Return(payment.Payment{ID: "p-1", ClinicID: clinicID, Status: payment.StatusPending}, true, nil).Once()
 			},
 			setupClinic: func(clinicRepo *mocks.Repository) {
 				clinicRepo.EXPECT().GetByID(mock.Anything, clinicID).Return(clinic.Clinic{ID: clinicID, Status: clinic.StatusActive}, nil).Once()
 			},
 			wantStatus: http.StatusCreated,
+		},
+		{
+			name: "replay returns 200 with the original payment",
+			body: `{"clinic_id":"` + clinicID + `","amount":15000}`,
+			setupRepo: func(repo *mocks.PaymentRepository) {
+				repo.EXPECT().Create(mock.Anything, mock.Anything).
+					Return(payment.Payment{ID: "original-id", ClinicID: clinicID, Status: payment.StatusPending}, false, nil).Once()
+			},
+			setupClinic: func(clinicRepo *mocks.Repository) {
+				clinicRepo.EXPECT().GetByID(mock.Anything, clinicID).Return(clinic.Clinic{ID: clinicID, Status: clinic.StatusActive}, nil).Once()
+			},
+			wantStatus: http.StatusOK,
+			wantError:  "original-id",
+		},
+		{
+			name: "idempotency key conflict",
+			body: `{"clinic_id":"` + clinicID + `","amount":15000}`,
+			setupRepo: func(repo *mocks.PaymentRepository) {
+				repo.EXPECT().Create(mock.Anything, mock.Anything).
+					Return(payment.Payment{}, false, payment.ErrIdempotencyKeyConflict).Once()
+			},
+			setupClinic: func(clinicRepo *mocks.Repository) {
+				clinicRepo.EXPECT().GetByID(mock.Anything, clinicID).Return(clinic.Clinic{ID: clinicID, Status: clinic.StatusActive}, nil).Once()
+			},
+			wantStatus: http.StatusConflict,
+			wantError:  "IDEMPOTENCY_KEY_CONFLICT",
+		},
+		{
+			name:        "missing idempotency key header",
+			body:        `{"clinic_id":"` + clinicID + `","amount":15000}`,
+			skipHeader:  true,
+			setupRepo:   func(repo *mocks.PaymentRepository) {},
+			setupClinic: func(clinicRepo *mocks.Repository) {},
+			wantStatus:  http.StatusBadRequest,
+			wantError:   "IDEMPOTENCY_KEY_REQUIRED",
 		},
 		{
 			name:      "clinic not found",
@@ -87,6 +124,9 @@ func TestHandler_CreatePayment(t *testing.T) {
 			tt.setupClinic(clinicRepo)
 
 			req := httptest.NewRequest(http.MethodPost, "/payments", bytes.NewBufferString(tt.body))
+			if !tt.skipHeader {
+				req.Header.Set("Idempotency-Key", "test-idem-key")
+			}
 			rec := httptest.NewRecorder()
 			r.ServeHTTP(rec, req)
 

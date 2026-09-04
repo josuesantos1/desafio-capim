@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -25,25 +26,38 @@ type handler struct {
 // @Tags         payments
 // @Accept       json
 // @Produce      json
-// @Param        payment  body      CreateInput  true  "Payment to create"
-// @Success      201      {object}  paymentResponse
-// @Failure      400      {object}  errorResponse
-// @Failure      404      {object}  errorResponse
+// @Param        Idempotency-Key  header    string       true  "Idempotency key"
+// @Param        payment          body      CreateInput  true  "Payment to create"
+// @Success      201              {object}  paymentResponse
+// @Success      200              {object}  paymentResponse "replay of an existing payment"
+// @Failure      400              {object}  errorResponse
+// @Failure      404              {object}  errorResponse
+// @Failure      409              {object}  errorResponse
 // @Router       /payments [post]
 func (h *handler) create(w http.ResponseWriter, r *http.Request) {
+	key := r.Header.Get("Idempotency-Key")
+	if strings.TrimSpace(key) == "" {
+		writeError(w, http.StatusBadRequest, "IDEMPOTENCY_KEY_REQUIRED", "Idempotency-Key header is required", nil)
+		return
+	}
+
 	var in CreateInput
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "invalid request body", nil)
 		return
 	}
 
-	p, err := h.svc.Create(r.Context(), in)
+	p, created, err := h.svc.Create(r.Context(), key, in)
 	if err != nil {
 		writeDomainError(w, err)
 		return
 	}
 
-	writeJSON(w, http.StatusCreated, toPaymentResponse(p))
+	status := http.StatusOK
+	if created {
+		status = http.StatusCreated
+	}
+	writeJSON(w, status, toPaymentResponse(p))
 }
 
 // get godoc
@@ -82,6 +96,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, "CLINIC_NOT_ACTIVE", "clinic must be active (have an administrator and a legal representative) to receive payments", nil)
 	case errors.Is(err, ErrDentistNotFound):
 		writeError(w, http.StatusNotFound, "DENTIST_NOT_FOUND", "dentist not found", nil)
+	case errors.Is(err, ErrIdempotencyKeyConflict):
+		writeError(w, http.StatusConflict, "IDEMPOTENCY_KEY_CONFLICT", "idempotency key already used with a different payload", nil)
 	case errors.Is(err, ErrNotFound):
 		writeError(w, http.StatusNotFound, "PAYMENT_NOT_FOUND", "payment not found", nil)
 	default:

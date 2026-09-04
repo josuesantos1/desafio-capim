@@ -68,28 +68,35 @@ func randomApprovalDelay() time.Duration {
 	return time.Duration(2+rand.Intn(4)) * time.Second
 }
 
-func (s *Service) Create(ctx context.Context, in CreateInput) (Payment, error) {
+// Create returns created=true if a new payment was inserted,
+// created=false if idempotencyKey matched an existing, identical
+// payment (replay). It always validates clinic/dentist state before
+// checking idempotency — a replay whose clinic/dentist state changed
+// since the original creation can still fail with the same error a
+// fresh creation would (see spec-idempotent-payments.md Business
+// Rule 7: accepted limitation, not a bug).
+func (s *Service) Create(ctx context.Context, idempotencyKey string, in CreateInput) (Payment, bool, error) {
 	if err := validateCreate(in); err != nil {
-		return Payment{}, err
+		return Payment{}, false, err
 	}
 
 	c, err := s.clinicRepo.GetByID(ctx, in.ClinicID)
 	if err != nil {
 		if errors.Is(err, clinic.ErrNotFound) {
-			return Payment{}, ErrClinicNotFound
+			return Payment{}, false, ErrClinicNotFound
 		}
-		return Payment{}, fmt.Errorf("payment: check clinic: %w", err)
+		return Payment{}, false, fmt.Errorf("payment: check clinic: %w", err)
 	}
 	if c.Status != clinic.StatusActive {
-		return Payment{}, ErrClinicNotActive
+		return Payment{}, false, ErrClinicNotActive
 	}
 
 	if in.DentistID != nil {
 		if _, err := s.dentistRepo.GetByID(ctx, in.ClinicID, *in.DentistID); err != nil {
 			if errors.Is(err, dentist.ErrNotFound) {
-				return Payment{}, ErrDentistNotFound
+				return Payment{}, false, ErrDentistNotFound
 			}
-			return Payment{}, fmt.Errorf("payment: check dentist: %w", err)
+			return Payment{}, false, fmt.Errorf("payment: check dentist: %w", err)
 		}
 	}
 
@@ -100,28 +107,32 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Payment, error) {
 		ReferenceID: id,
 	})
 	if err != nil {
-		return Payment{}, fmt.Errorf("payment: create charge: %w", err)
+		return Payment{}, false, fmt.Errorf("payment: create charge: %w", err)
 	}
 
 	now := time.Now().UTC()
 	p := Payment{
-		ID:          id,
-		ClinicID:    in.ClinicID,
-		DentistID:   in.DentistID,
-		AmountCents: in.Amount,
-		Status:      StatusPending,
-		PixCode:     charge.CopyPasteCode,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:             id,
+		ClinicID:       in.ClinicID,
+		DentistID:      in.DentistID,
+		AmountCents:    in.Amount,
+		Status:         StatusPending,
+		PixCode:        charge.CopyPasteCode,
+		IdempotencyKey: idempotencyKey,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 
-	if err := s.repo.Create(ctx, p); err != nil {
-		return Payment{}, fmt.Errorf("payment: create: %w", err)
+	result, created, err := s.repo.Create(ctx, p)
+	if err != nil {
+		return Payment{}, false, fmt.Errorf("payment: create: %w", err)
 	}
 
-	s.scheduleApproval(p.ID)
+	if created {
+		s.scheduleApproval(result.ID)
+	}
 
-	return p, nil
+	return result, created, nil
 }
 
 func (s *Service) Get(ctx context.Context, id string) (Payment, error) {

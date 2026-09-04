@@ -2,6 +2,7 @@ package payment
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -35,11 +36,12 @@ func newPaymentRepo(t *testing.T) (*memoryRepository, *clinic.Clinic, *dentist.D
 	return NewMemoryRepository(clinics, dentists), &c, &d
 }
 
-func newPayment(id, clinicID string, dentistID *string) Payment {
+func newPayment(id, clinicID string, dentistID *string, idempotencyKey string) Payment {
 	now := time.Now().UTC()
 	return Payment{
 		ID: id, ClinicID: clinicID, DentistID: dentistID, AmountCents: 1000,
-		Status: StatusPending, PixCode: "code", CreatedAt: now, UpdatedAt: now,
+		Status: StatusPending, PixCode: "code", IdempotencyKey: idempotencyKey,
+		CreatedAt: now, UpdatedAt: now,
 	}
 }
 
@@ -48,38 +50,155 @@ func TestMemoryRepository_Create(t *testing.T) {
 
 	t.Run("success without dentist", func(t *testing.T) {
 		repo, _, _ := newPaymentRepo(t)
-		require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil)))
+		result, created, err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil, "idem-1"))
+		require.NoError(t, err)
+		require.True(t, created)
+		require.Equal(t, "p-1", result.ID)
 	})
 
 	t.Run("success with dentist", func(t *testing.T) {
 		repo, _, d := newPaymentRepo(t)
-		require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, &d.ID)))
+		_, created, err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, &d.ID, "idem-1"))
+		require.NoError(t, err)
+		require.True(t, created)
 	})
 
 	t.Run("clinic not found returns ErrNotFound", func(t *testing.T) {
 		repo, _, _ := newPaymentRepo(t)
-		err := repo.Create(ctx, newPayment("p-1", "missing-clinic", nil))
+		_, created, err := repo.Create(ctx, newPayment("p-1", "missing-clinic", nil, "idem-1"))
 		require.ErrorIs(t, err, ErrNotFound)
+		require.False(t, created)
 	})
 
 	t.Run("dentist not found returns ErrNotFound", func(t *testing.T) {
 		repo, _, _ := newPaymentRepo(t)
 		missing := "missing-dentist"
-		err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, &missing))
+		_, created, err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, &missing, "idem-1"))
 		require.ErrorIs(t, err, ErrNotFound)
+		require.False(t, created)
 	})
 
 	t.Run("dentist belonging to another clinic returns ErrNotFound", func(t *testing.T) {
 		repo, _, d := newPaymentRepo(t)
-		err := repo.Create(ctx, newPayment("p-1", "other-clinic", &d.ID))
+		_, created, err := repo.Create(ctx, newPayment("p-1", "other-clinic", &d.ID, "idem-1"))
 		require.ErrorIs(t, err, ErrNotFound)
+		require.False(t, created)
+	})
+
+	t.Run("replay: same key and same payload returns original, created=false", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		original, created, err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil, "idem-1"))
+		require.NoError(t, err)
+		require.True(t, created)
+
+		replay, created, err := repo.Create(ctx, newPayment("p-2", testClinicIDRepo, nil, "idem-1"))
+		require.NoError(t, err)
+		require.False(t, created)
+		require.Equal(t, original.ID, replay.ID)
+
+		_, err = repo.GetByID(ctx, "p-2")
+		require.ErrorIs(t, err, ErrNotFound, "the replay attempt's payment must never have been inserted")
+	})
+
+	t.Run("conflict: same key, different amount returns ErrIdempotencyKeyConflict", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		_, created, err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil, "idem-1"))
+		require.NoError(t, err)
+		require.True(t, created)
+
+		conflicting := newPayment("p-2", testClinicIDRepo, nil, "idem-1")
+		conflicting.AmountCents = 9999
+		_, created, err = repo.Create(ctx, conflicting)
+		require.ErrorIs(t, err, ErrIdempotencyKeyConflict)
+		require.False(t, created)
+
+		_, err = repo.GetByID(ctx, "p-2")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("conflict: same key, different dentist_id (nil vs set) returns ErrIdempotencyKeyConflict", func(t *testing.T) {
+		repo, _, d := newPaymentRepo(t)
+		_, created, err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil, "idem-1"))
+		require.NoError(t, err)
+		require.True(t, created)
+
+		_, created, err = repo.Create(ctx, newPayment("p-2", testClinicIDRepo, &d.ID, "idem-1"))
+		require.ErrorIs(t, err, ErrIdempotencyKeyConflict)
+		require.False(t, created)
+	})
+
+	t.Run("concurrent creates with the same new key and same payload: exactly one created", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+
+		var wg sync.WaitGroup
+		results := make([]bool, 2)
+		errs := make([]error, 2)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_, results[0], errs[0] = repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil, "idem-concurrent"))
+		}()
+		go func() {
+			defer wg.Done()
+			_, results[1], errs[1] = repo.Create(ctx, newPayment("p-2", testClinicIDRepo, nil, "idem-concurrent"))
+		}()
+		wg.Wait()
+
+		require.NoError(t, errs[0])
+		require.NoError(t, errs[1])
+		createdCount := 0
+		for _, c := range results {
+			if c {
+				createdCount++
+			}
+		}
+		require.Equal(t, 1, createdCount, "exactly one of the two concurrent creates must have inserted a new payment")
+	})
+
+	t.Run("concurrent creates with the same new key but different payloads: one created, one conflict", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+
+		p1 := newPayment("p-1", testClinicIDRepo, nil, "idem-concurrent-conflict")
+		p2 := newPayment("p-2", testClinicIDRepo, nil, "idem-concurrent-conflict")
+		p2.AmountCents = 9999
+
+		var wg sync.WaitGroup
+		created := make([]bool, 2)
+		errs := make([]error, 2)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_, created[0], errs[0] = repo.Create(ctx, p1)
+		}()
+		go func() {
+			defer wg.Done()
+			_, created[1], errs[1] = repo.Create(ctx, p2)
+		}()
+		wg.Wait()
+
+		createdCount, conflictCount := 0, 0
+		for i, c := range created {
+			switch {
+			case c:
+				createdCount++
+				require.NoError(t, errs[i])
+			case errs[i] != nil:
+				require.ErrorIs(t, errs[i], ErrIdempotencyKeyConflict)
+				conflictCount++
+			default:
+				t.Fatalf("unexpected outcome: created=false with no error at index %d", i)
+			}
+		}
+		require.Equal(t, 1, createdCount)
+		require.Equal(t, 1, conflictCount)
 	})
 }
 
 func TestMemoryRepository_GetByID(t *testing.T) {
 	ctx := context.Background()
 	repo, _, _ := newPaymentRepo(t)
-	require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil)))
+	_, _, err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil, "idem-1"))
+	require.NoError(t, err)
 
 	t.Run("success", func(t *testing.T) {
 		got, err := repo.GetByID(ctx, "p-1")
@@ -98,7 +217,8 @@ func TestMemoryRepository_Approve(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		repo, _, _ := newPaymentRepo(t)
-		require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil)))
+		_, _, err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil, "idem-1"))
+		require.NoError(t, err)
 
 		require.NoError(t, repo.Approve(ctx, "p-1", time.Now().UTC()))
 
@@ -116,10 +236,11 @@ func TestMemoryRepository_Approve(t *testing.T) {
 
 	t.Run("double approve returns ErrNotFound (idempotency guard)", func(t *testing.T) {
 		repo, _, _ := newPaymentRepo(t)
-		require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil)))
+		_, _, err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil, "idem-1"))
+		require.NoError(t, err)
 		require.NoError(t, repo.Approve(ctx, "p-1", time.Now().UTC()))
 
-		err := repo.Approve(ctx, "p-1", time.Now().UTC())
+		err = repo.Approve(ctx, "p-1", time.Now().UTC())
 		require.ErrorIs(t, err, ErrNotFound)
 	})
 }

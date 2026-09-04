@@ -32,6 +32,7 @@ import (
 const (
 	integrationClinicID  = "11111111-1111-1111-1111-111111111111"
 	integrationDentistID = "22222222-2222-2222-2222-222222222222"
+	integrationIdemKey   = "integration-idem-key"
 )
 
 func newIntegrationRouter(t *testing.T) (chi.Router, clinic.Repository, dentist.Repository, payment.Repository) {
@@ -84,6 +85,16 @@ func decodeJSONBody(body []byte, v any) error {
 	return json.Unmarshal(body, v)
 }
 
+func postPayment(r chi.Router, body, idempotencyKey string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(http.MethodPost, "/payments", bytes.NewBufferString(body))
+	if idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", idempotencyKey)
+	}
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	return rec
+}
+
 // setupFunc seeds fixtures directly on the real repositories before a
 // case's request is issued.
 type setupFunc func(t *testing.T, clinicRepo clinic.Repository, dentistRepo dentist.Repository)
@@ -99,6 +110,7 @@ func TestIntegration_CreatePayment(t *testing.T) {
 		name         string
 		setup        setupFunc
 		body         string
+		skipHeader   bool
 		wantStatus   int
 		wantContains string
 	}{
@@ -115,6 +127,14 @@ func TestIntegration_CreatePayment(t *testing.T) {
 			body:         `{"clinic_id":"` + integrationClinicID + `","amount":1000,"dentist_id":"` + integrationDentistID + `"}`,
 			wantStatus:   http.StatusCreated,
 			wantContains: `"status":"pending"`,
+		},
+		{
+			name:         "missing idempotency key header",
+			setup:        activeClinicWithDentist,
+			body:         `{"clinic_id":"` + integrationClinicID + `","amount":1000}`,
+			skipHeader:   true,
+			wantStatus:   http.StatusBadRequest,
+			wantContains: "IDEMPOTENCY_KEY_REQUIRED",
 		},
 		{
 			name:         "validation error",
@@ -153,14 +173,49 @@ func TestIntegration_CreatePayment(t *testing.T) {
 				tt.setup(t, clinicRepo, dentistRepo)
 			}
 
-			req := httptest.NewRequest(http.MethodPost, "/payments", bytes.NewBufferString(tt.body))
-			rec := httptest.NewRecorder()
-			r.ServeHTTP(rec, req)
+			key := integrationIdemKey
+			if tt.skipHeader {
+				key = ""
+			}
+			rec := postPayment(r, tt.body, key)
 
 			require.Equal(t, tt.wantStatus, rec.Code, "body=%s", rec.Body.String())
 			require.Contains(t, rec.Body.String(), tt.wantContains)
 		})
 	}
+}
+
+func TestIntegration_CreatePayment_Replay(t *testing.T) {
+	r, clinicRepo, dentistRepo, _ := newIntegrationRouter(t)
+	activeClinicWithDentist(t, clinicRepo, dentistRepo)
+	body := `{"clinic_id":"` + integrationClinicID + `","amount":1000}`
+
+	first := postPayment(r, body, integrationIdemKey)
+	require.Equal(t, http.StatusCreated, first.Code, "body=%s", first.Body.String())
+	var firstPayment struct {
+		ID string `json:"id"`
+	}
+	require.NoError(t, decodeJSONBody(first.Body.Bytes(), &firstPayment))
+
+	second := postPayment(r, body, integrationIdemKey)
+	require.Equal(t, http.StatusOK, second.Code, "body=%s", second.Body.String())
+	var secondPayment struct {
+		ID string `json:"id"`
+	}
+	require.NoError(t, decodeJSONBody(second.Body.Bytes(), &secondPayment))
+	require.Equal(t, firstPayment.ID, secondPayment.ID, "replay must return the original payment, not a new one")
+}
+
+func TestIntegration_CreatePayment_Conflict(t *testing.T) {
+	r, clinicRepo, dentistRepo, _ := newIntegrationRouter(t)
+	activeClinicWithDentist(t, clinicRepo, dentistRepo)
+
+	first := postPayment(r, `{"clinic_id":"`+integrationClinicID+`","amount":1000}`, integrationIdemKey)
+	require.Equal(t, http.StatusCreated, first.Code, "body=%s", first.Body.String())
+
+	second := postPayment(r, `{"clinic_id":"`+integrationClinicID+`","amount":9999}`, integrationIdemKey)
+	require.Equal(t, http.StatusConflict, second.Code, "body=%s", second.Body.String())
+	require.Contains(t, second.Body.String(), "IDEMPOTENCY_KEY_CONFLICT")
 }
 
 func TestIntegration_GetPayment(t *testing.T) {
@@ -202,10 +257,7 @@ func TestIntegration_GetPayment(t *testing.T) {
 
 			path := tt.path
 			if tt.createFirst {
-				createReq := httptest.NewRequest(http.MethodPost, "/payments",
-					bytes.NewBufferString(`{"clinic_id":"`+integrationClinicID+`","amount":1000}`))
-				createRec := httptest.NewRecorder()
-				r.ServeHTTP(createRec, createReq)
+				createRec := postPayment(r, `{"clinic_id":"`+integrationClinicID+`","amount":1000}`, integrationIdemKey)
 				require.Equal(t, http.StatusCreated, createRec.Code, "body=%s", createRec.Body.String())
 
 				var created struct {

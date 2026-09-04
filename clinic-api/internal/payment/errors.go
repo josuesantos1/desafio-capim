@@ -7,6 +7,11 @@ var (
 	ErrClinicNotFound  = errors.New("payment: clinic not found")
 	ErrDentistNotFound = errors.New("payment: dentist not found")
 	ErrClinicNotActive = errors.New("payment: clinic not active")
+
+	// ErrIdempotencyKeyConflict indicates the Idempotency-Key was
+	// already used by a payment whose business fields (ClinicID,
+	// AmountCents, DentistID) differ from the current request.
+	ErrIdempotencyKeyConflict = errors.New("payment: idempotency key reused with a different payload")
 )
 
 // ValidationError wraps ErrValidation carrying the invalid fields and
