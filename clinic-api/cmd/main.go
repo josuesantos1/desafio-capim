@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,10 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/jmoiron/sqlx"
 	httpSwagger "github.com/swaggo/http-swagger"
-
-	_ "github.com/jackc/pgx/v5/stdlib"
 
 	_ "github.com/josuesantos1/desafio/docs"
 	"github.com/josuesantos1/desafio/internal/clinic"
@@ -36,14 +32,11 @@ func main() {
 	cfg := config.Load()
 	setupLogger(cfg.LogLevel)
 
-	db := connectDB(cfg.DB)
-	defer db.Close()
-
 	router := server.NewRouter()
 
-	clinicRepo := clinic.NewPostgresRepository(db)
-	dentistRepo := dentist.NewPostgresRepository(db)
-	paymentRepo := payment.NewPostgresRepository(db)
+	clinicRepo := clinic.NewMemoryRepository()
+	dentistRepo := dentist.NewMemoryRepository(clinicRepo)
+	paymentRepo := payment.NewMemoryRepository(clinicRepo, dentistRepo)
 	pixClient := pix.NewClient(pix.Config{APIKey: "simulated"})
 
 	router.Route("/api", func(api chi.Router) {
@@ -79,20 +72,6 @@ func main() {
 		slog.Info("shutdown signal received", "signal", sig.String())
 		shutdown(srv)
 	}
-}
-
-func connectDB(cfg config.DBConfig) *sqlx.DB {
-	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name, cfg.SSLMode,
-	)
-
-	db, err := sqlx.Connect("pgx", dsn)
-	if err != nil {
-		slog.Error("failed to connect to database", "error", err)
-		os.Exit(1)
-	}
-	return db
 }
 
 func shutdown(srv *http.Server) {

@@ -2,174 +2,186 @@ package clinic
 
 import (
 	"context"
-	"regexp"
 	"testing"
 	"time"
 
-	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
 )
 
-func newMockRepo(t *testing.T) (*postgresRepository, sqlmock.Sqlmock) {
-	t.Helper()
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
-
-	sqlxDB := sqlx.NewDb(db, "postgres")
-	return &postgresRepository{db: sqlxDB}, mock
-}
-
-func TestPostgresRepository_Create(t *testing.T) {
+func newClinic(id, document string) Clinic {
 	now := time.Now().UTC()
-	c := Clinic{ID: "id-1", Document: "12345678900", LegalName: "Legal", TradeName: "Trade", CreatedAt: now, UpdatedAt: now}
-
-	tests := []struct {
-		name      string
-		setupMock func(mock sqlmock.Sqlmock)
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO clinics")).
-					WillReturnResult(sqlmock.NewResult(0, 1))
-			},
-		},
-		{
-			name: "unique violation maps to ErrDocumentExists",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO clinics")).
-					WillReturnError(&pgconn.PgError{Code: uniqueViolationCode})
-			},
-			wantErr: ErrDocumentExists,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			tt.setupMock(mock)
-
-			err := repo.Create(context.Background(), c)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
+	return Clinic{
+		ID:        id,
+		Document:  document,
+		LegalName: "Legal Name",
+		TradeName: "Trade Name",
+		Status:    StatusPending,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 }
 
-func TestPostgresRepository_GetByID(t *testing.T) {
-	now := time.Now().UTC()
-	const query = "SELECT * FROM clinics WHERE id = $1 AND deleted_at IS NULL"
+func TestMemoryRepository_Create(t *testing.T) {
+	ctx := context.Background()
 
-	tests := []struct {
-		name      string
-		id        string
-		setupMock func(mock sqlmock.Sqlmock)
-		wantErr   error
-		wantID    string
-	}{
-		{
-			name: "success",
-			id:   "id-1",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				rows := sqlmock.NewRows([]string{"id", "document", "legal_name", "trade_name", "bank", "agency", "account", "created_at", "updated_at", "deleted_at"}).
-					AddRow("id-1", "12345678900", "Legal", "Trade", nil, nil, nil, now, now, nil)
-				mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs("id-1").WillReturnRows(rows)
-			},
-			wantID: "id-1",
-		},
-		{
-			name: "not found",
-			id:   "missing-id",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery(regexp.QuoteMeta(query)).WithArgs("missing-id").WillReturnRows(sqlmock.NewRows([]string{"id"}))
-			},
-			wantErr: ErrNotFound,
-		},
-	}
+	t.Run("success", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			tt.setupMock(mock)
+		got, err := repo.GetByID(ctx, "id-1")
+		require.NoError(t, err)
+		require.Equal(t, "doc-1", got.Document)
+	})
 
-			c, err := repo.GetByID(context.Background(), tt.id)
+	t.Run("duplicate document among non-deleted returns ErrDocumentExists", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
 
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantID, c.ID)
-		})
-	}
+		err := repo.Create(ctx, newClinic("id-2", "doc-1"))
+		require.ErrorIs(t, err, ErrDocumentExists)
+	})
+
+	t.Run("document of a soft-deleted clinic does not block creation", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
+		require.NoError(t, repo.SoftDelete(ctx, "id-1", time.Now().UTC()))
+
+		require.NoError(t, repo.Create(ctx, newClinic("id-2", "doc-1")))
+	})
 }
 
-func TestPostgresRepository_Update(t *testing.T) {
-	now := time.Now().UTC()
-	c := Clinic{ID: "id-1", Document: "12345678900", LegalName: "Legal", TradeName: "Trade", UpdatedAt: now}
+func TestMemoryRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
+	repo := NewMemoryRepository()
+	require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
 
-	tests := []struct {
-		name         string
-		rowsAffected int64
-		wantErr      error
-	}{
-		{name: "success", rowsAffected: 1},
-		{name: "not found", rowsAffected: 0, wantErr: ErrNotFound},
-	}
+	t.Run("not found", func(t *testing.T) {
+		_, err := repo.GetByID(ctx, "missing")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			mock.ExpectExec(regexp.QuoteMeta("UPDATE clinics")).
-				WillReturnResult(sqlmock.NewResult(0, tt.rowsAffected))
-
-			err := repo.Update(context.Background(), c)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
+	t.Run("soft-deleted returns not found", func(t *testing.T) {
+		require.NoError(t, repo.SoftDelete(ctx, "id-1", time.Now().UTC()))
+		_, err := repo.GetByID(ctx, "id-1")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 }
 
-func TestPostgresRepository_SoftDelete(t *testing.T) {
-	const query = "UPDATE clinics SET deleted_at = $2, updated_at = $2 WHERE id = $1 AND deleted_at IS NULL"
+func TestMemoryRepository_GetByDocument(t *testing.T) {
+	ctx := context.Background()
+	repo := NewMemoryRepository()
+	require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
 
-	tests := []struct {
-		name         string
-		id           string
-		rowsAffected int64
-		wantErr      error
-	}{
-		{name: "success", id: "id-1", rowsAffected: 1},
-		{name: "not found", id: "missing-id", rowsAffected: 0, wantErr: ErrNotFound},
-	}
+	t.Run("success", func(t *testing.T) {
+		got, err := repo.GetByDocument(ctx, "doc-1")
+		require.NoError(t, err)
+		require.Equal(t, "id-1", got.ID)
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			mock.ExpectExec(regexp.QuoteMeta(query)).
-				WithArgs(tt.id, sqlmock.AnyArg()).
-				WillReturnResult(sqlmock.NewResult(0, tt.rowsAffected))
+	t.Run("not found", func(t *testing.T) {
+		_, err := repo.GetByDocument(ctx, "missing-doc")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+}
 
-			err := repo.SoftDelete(context.Background(), tt.id, time.Now().UTC())
+func TestMemoryRepository_Update(t *testing.T) {
+	ctx := context.Background()
 
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
+	t.Run("success", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		c := newClinic("id-1", "doc-1")
+		require.NoError(t, repo.Create(ctx, c))
+
+		c.LegalName = "Updated Name"
+		require.NoError(t, repo.Update(ctx, c))
+
+		got, err := repo.GetByID(ctx, "id-1")
+		require.NoError(t, err)
+		require.Equal(t, "Updated Name", got.LegalName)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		err := repo.Update(ctx, newClinic("missing", "doc-1"))
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("soft-deleted returns not found", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		c := newClinic("id-1", "doc-1")
+		require.NoError(t, repo.Create(ctx, c))
+		require.NoError(t, repo.SoftDelete(ctx, "id-1", time.Now().UTC()))
+
+		err := repo.Update(ctx, c)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+}
+
+func TestMemoryRepository_SoftDelete(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
+
+		require.NoError(t, repo.SoftDelete(ctx, "id-1", time.Now().UTC()))
+
+		_, err := repo.GetByID(ctx, "id-1")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		err := repo.SoftDelete(ctx, "missing", time.Now().UTC())
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("double delete returns not found", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
+		require.NoError(t, repo.SoftDelete(ctx, "id-1", time.Now().UTC()))
+
+		err := repo.SoftDelete(ctx, "id-1", time.Now().UTC())
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+}
+
+func TestMemoryRepository_Activate(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("pending clinic becomes active", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
+
+		require.NoError(t, repo.Activate(ctx, "id-1"))
+
+		got, err := repo.GetByID(ctx, "id-1")
+		require.NoError(t, err)
+		require.Equal(t, StatusActive, got.Status)
+	})
+
+	t.Run("already active clinic is a no-op", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
+		require.NoError(t, repo.Activate(ctx, "id-1"))
+
+		require.NoError(t, repo.Activate(ctx, "id-1"))
+
+		got, err := repo.GetByID(ctx, "id-1")
+		require.NoError(t, err)
+		require.Equal(t, StatusActive, got.Status)
+	})
+
+	t.Run("missing clinic is a no-op, no error", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		require.NoError(t, repo.Activate(ctx, "missing"))
+	})
+
+	t.Run("soft-deleted clinic is a no-op, no error", func(t *testing.T) {
+		repo := NewMemoryRepository()
+		require.NoError(t, repo.Create(ctx, newClinic("id-1", "doc-1")))
+		require.NoError(t, repo.SoftDelete(ctx, "id-1", time.Now().UTC()))
+
+		require.NoError(t, repo.Activate(ctx, "id-1"))
+	})
 }

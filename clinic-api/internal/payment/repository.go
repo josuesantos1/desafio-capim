@@ -2,18 +2,15 @@ package payment
 
 import (
 	"context"
-	"database/sql"
 	"errors"
+	"sync"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/josuesantos1/desafio/pkg/storage"
 )
 
 var ErrNotFound = errors.New("payment: not found")
 
-// Create's query embeds, atomically, the same "clinic is active" and
-// (when DentistID is set) "dentist is active and belongs to this
-// clinic" guards used by internal/dentist — see spec Business Rule 1.
 type Repository interface {
 	Create(ctx context.Context, p Payment) error
 	GetByID(ctx context.Context, id string) (Payment, error)
@@ -23,101 +20,55 @@ type Repository interface {
 	Approve(ctx context.Context, id string, approvedAt time.Time) error
 }
 
-type postgresRepository struct {
-	db *sqlx.DB
+// memoryRepository serializes Create/Approve under mu — the guarded
+// compound sequences (clinic/dentist existence check, pending->approved
+// check-then-write) need atomicity that storage.Store alone only gives
+// per single-key operation. GetByID relies solely on the Store's own
+// RLock.
+type memoryRepository struct {
+	mu       sync.Mutex
+	store    *storage.Store[Payment]
+	clinics  clinicGetter
+	dentists dentistGetter
 }
 
-func NewPostgresRepository(db *sqlx.DB) Repository {
-	return &postgresRepository{db: db}
+func NewMemoryRepository(clinics clinicGetter, dentists dentistGetter) *memoryRepository {
+	return &memoryRepository{store: storage.New[Payment](), clinics: clinics, dentists: dentists}
 }
 
-type paymentRow struct {
-	ID          string     `db:"id"`
-	ClinicID    string     `db:"clinic_id"`
-	DentistID   *string    `db:"dentist_id"`
-	AmountCents int64      `db:"amount_cents"`
-	Status      string     `db:"status"`
-	PixCode     string     `db:"pix_code"`
-	CreatedAt   time.Time  `db:"created_at"`
-	UpdatedAt   time.Time  `db:"updated_at"`
-	ApprovedAt  *time.Time `db:"approved_at"`
-}
+func (r *memoryRepository) Create(ctx context.Context, p Payment) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-func (r *postgresRepository) Create(ctx context.Context, p Payment) error {
-	const query = `
-		INSERT INTO payments (id, clinic_id, dentist_id, amount_cents, status, pix_code, created_at, updated_at)
-		SELECT :id, :clinic_id, :dentist_id, :amount_cents, :status, :pix_code, :created_at, :updated_at
-		WHERE EXISTS (SELECT 1 FROM clinics c WHERE c.id = :clinic_id AND c.deleted_at IS NULL)
-		AND (CAST(:dentist_id AS uuid) IS NULL OR EXISTS (
-			SELECT 1 FROM dentists d WHERE d.id = :dentist_id AND d.clinic_id = :clinic_id AND d.deleted_at IS NULL
-		))`
-
-	res, err := r.db.NamedExecContext(ctx, query, toRow(p))
-	if err != nil {
-		return err
-	}
-	return checkRowsAffected(res)
-}
-
-func (r *postgresRepository) GetByID(ctx context.Context, id string) (Payment, error) {
-	const query = `SELECT * FROM payments WHERE id = $1`
-
-	var row paymentRow
-	err := r.db.GetContext(ctx, &row, query, id)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Payment{}, ErrNotFound
-	}
-	if err != nil {
-		return Payment{}, err
-	}
-	return row.toPayment(), nil
-}
-
-func (r *postgresRepository) Approve(ctx context.Context, id string, approvedAt time.Time) error {
-	const query = `UPDATE payments SET status = 'approved', approved_at = $2, updated_at = $2 WHERE id = $1 AND status = 'pending'`
-
-	res, err := r.db.ExecContext(ctx, query, id, approvedAt)
-	if err != nil {
-		return err
-	}
-	return checkRowsAffected(res)
-}
-
-func checkRowsAffected(res sql.Result) error {
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
+	if _, err := r.clinics.GetByID(ctx, p.ClinicID); err != nil {
 		return ErrNotFound
 	}
-	return nil
+	if p.DentistID != nil {
+		if _, err := r.dentists.GetByID(ctx, p.ClinicID, *p.DentistID); err != nil {
+			return ErrNotFound
+		}
+	}
+	return r.store.Insert(p.ID, p)
 }
 
-func toRow(p Payment) paymentRow {
-	return paymentRow{
-		ID:          p.ID,
-		ClinicID:    p.ClinicID,
-		DentistID:   p.DentistID,
-		AmountCents: p.AmountCents,
-		Status:      p.Status,
-		PixCode:     p.PixCode,
-		CreatedAt:   p.CreatedAt,
-		UpdatedAt:   p.UpdatedAt,
-		ApprovedAt:  p.ApprovedAt,
+func (r *memoryRepository) GetByID(ctx context.Context, id string) (Payment, error) {
+	p, err := r.store.Read(id)
+	if err != nil {
+		return Payment{}, ErrNotFound
 	}
+	return p, nil
 }
 
-func (row paymentRow) toPayment() Payment {
-	return Payment{
-		ID:          row.ID,
-		ClinicID:    row.ClinicID,
-		DentistID:   row.DentistID,
-		AmountCents: row.AmountCents,
-		Status:      row.Status,
-		PixCode:     row.PixCode,
-		CreatedAt:   row.CreatedAt,
-		UpdatedAt:   row.UpdatedAt,
-		ApprovedAt:  row.ApprovedAt,
+func (r *memoryRepository) Approve(ctx context.Context, id string, approvedAt time.Time) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, err := r.store.Read(id)
+	if err != nil || current.Status != StatusPending {
+		return ErrNotFound
 	}
+	current.Status = StatusApproved
+	current.ApprovedAt = &approvedAt
+	current.UpdatedAt = approvedAt
+	return r.store.Update(id, current)
 }

@@ -2,531 +2,318 @@ package dentist
 
 import (
 	"context"
-	"regexp"
+	"sync"
 	"testing"
 	"time"
 
-	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
+
+	"github.com/josuesantos1/desafio/internal/clinic"
 )
 
-const testClinicIDRepo = "11111111-1111-1111-1111-111111111111"
+const testClinicID = "11111111-1111-1111-1111-111111111111"
 
-func newMockRepo(t *testing.T) (*postgresRepository, sqlmock.Sqlmock) {
+// newDentistRepo returns a dentist.memoryRepository wired to a real
+// clinic.memoryRepository (satisfies clinicActivator structurally),
+// with testClinicID already created and pending. The returned func
+// activates the clinic when called with "active".
+func newDentistRepo(t *testing.T) (*memoryRepository, func(status string)) {
 	t.Helper()
-	db, mock, err := sqlmock.New()
+	clinics := clinic.NewMemoryRepository()
+	now := time.Now().UTC()
+	require.NoError(t, clinics.Create(context.Background(), clinic.Clinic{
+		ID: testClinicID, Document: "doc-1", LegalName: "L", TradeName: "T",
+		Status: clinic.StatusPending, CreatedAt: now, UpdatedAt: now,
+	}))
+
+	activate := func(status string) {
+		if status == "active" {
+			require.NoError(t, clinics.Activate(context.Background(), testClinicID))
+		}
+	}
+
+	return NewMemoryRepository(clinics), activate
+}
+
+func newDentist(id, email string) Dentist {
+	now := time.Now().UTC()
+	return Dentist{
+		ID: id, ClinicID: testClinicID, Name: "Dr. X", Phone: "123", Email: email,
+		CreatedAt: now, UpdatedAt: now,
+	}
+}
+
+func TestMemoryRepository_Create(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		repo, _ := newDentistRepo(t)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+	})
+
+	t.Run("clinic not found returns ErrNotFound", func(t *testing.T) {
+		repo, _ := newDentistRepo(t)
+		d := newDentist("d-1", "a@test.com")
+		d.ClinicID = "missing-clinic"
+		err := repo.Create(ctx, d)
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("duplicate email returns ErrEmailExists", func(t *testing.T) {
+		repo, _ := newDentistRepo(t)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+
+		err := repo.Create(ctx, newDentist("d-2", "a@test.com"))
+		require.ErrorIs(t, err, ErrEmailExists)
+	})
+}
+
+func TestMemoryRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
+	repo, _ := newDentistRepo(t)
+	require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+
+	t.Run("success", func(t *testing.T) {
+		got, err := repo.GetByID(ctx, testClinicID, "d-1")
+		require.NoError(t, err)
+		require.Equal(t, "a@test.com", got.Email)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		_, err := repo.GetByID(ctx, testClinicID, "missing")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("wrong clinic returns not found", func(t *testing.T) {
+		_, err := repo.GetByID(ctx, "other-clinic", "d-1")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+}
+
+func TestMemoryRepository_Update(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		repo, _ := newDentistRepo(t)
+		d := newDentist("d-1", "a@test.com")
+		require.NoError(t, repo.Create(ctx, d))
+
+		d.Name = "Dr. Updated"
+		require.NoError(t, repo.Update(ctx, d))
+
+		got, err := repo.GetByID(ctx, testClinicID, "d-1")
+		require.NoError(t, err)
+		require.Equal(t, "Dr. Updated", got.Name)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo, _ := newDentistRepo(t)
+		err := repo.Update(ctx, newDentist("missing", "a@test.com"))
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("email changed to one already in use returns ErrEmailExists", func(t *testing.T) {
+		repo, _ := newDentistRepo(t)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+		d2 := newDentist("d-2", "b@test.com")
+		require.NoError(t, repo.Create(ctx, d2))
+
+		d2.Email = "a@test.com"
+		err := repo.Update(ctx, d2)
+		require.ErrorIs(t, err, ErrEmailExists)
+	})
+}
+
+func TestMemoryRepository_UpdateRoles(t *testing.T) {
+	ctx := context.Background()
+	yes, no := true, false
+
+	t.Run("pending clinic allows demoting sole admin", func(t *testing.T) {
+		repo, _ := newDentistRepo(t)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+		_, err := repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &yes})
+		require.NoError(t, err)
+
+		_, err = repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &no})
+		require.NoError(t, err, "clinic still pending, guard doesn't apply")
+	})
+
+	t.Run("active clinic blocks demoting the last administrator", func(t *testing.T) {
+		repo, activate := newDentistRepo(t)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+		_, err := repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &yes, IsLegalRepresentative: &yes})
+		require.NoError(t, err)
+		activate("active")
+
+		_, err = repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &no})
+		require.ErrorIs(t, err, ErrLastAdminRequired)
+	})
+
+	t.Run("active clinic allows demoting admin when another active admin exists", func(t *testing.T) {
+		repo, activate := newDentistRepo(t)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+		require.NoError(t, repo.Create(ctx, newDentist("d-2", "b@test.com")))
+		_, err := repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &yes, IsLegalRepresentative: &yes})
+		require.NoError(t, err)
+		_, err = repo.UpdateRoles(ctx, testClinicID, "d-2", RolesInput{IsAdministrator: &yes})
+		require.NoError(t, err)
+		activate("active")
+
+		_, err = repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &no})
+		require.NoError(t, err)
+	})
+
+	t.Run("admin guard is checked before legal representative guard", func(t *testing.T) {
+		repo, activate := newDentistRepo(t)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+		_, err := repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &yes, IsLegalRepresentative: &yes})
+		require.NoError(t, err)
+		activate("active")
+
+		_, err = repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &no, IsLegalRepresentative: &no})
+		require.ErrorIs(t, err, ErrLastAdminRequired)
+	})
+
+	t.Run("clinic activates once it has both an admin and a legal representative", func(t *testing.T) {
+		clinics := clinic.NewMemoryRepository()
+		now := time.Now().UTC()
+		require.NoError(t, clinics.Create(ctx, clinic.Clinic{
+			ID: testClinicID, Document: "doc-1", LegalName: "L", TradeName: "T",
+			Status: clinic.StatusPending, CreatedAt: now, UpdatedAt: now,
+		}))
+		repo := NewMemoryRepository(clinics)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+
+		_, err := repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &yes})
+		require.NoError(t, err)
+		got, err := clinics.GetByID(ctx, testClinicID)
+		require.NoError(t, err)
+		require.Equal(t, clinic.StatusPending, got.Status, "still missing a legal representative")
+
+		_, err = repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsLegalRepresentative: &yes})
+		require.NoError(t, err)
+		got, err = clinics.GetByID(ctx, testClinicID)
+		require.NoError(t, err)
+		require.Equal(t, clinic.StatusActive, got.Status)
+	})
+
+	t.Run("clinic not found returns not found", func(t *testing.T) {
+		repo, _ := newDentistRepo(t)
+		_, err := repo.UpdateRoles(ctx, "missing-clinic", "d-1", RolesInput{IsAdministrator: &yes})
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+}
+
+func TestMemoryRepository_SoftDelete(t *testing.T) {
+	ctx := context.Background()
+	yes := true
+
+	t.Run("success", func(t *testing.T) {
+		repo, _ := newDentistRepo(t)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+
+		require.NoError(t, repo.SoftDelete(ctx, testClinicID, "d-1", time.Now().UTC()))
+
+		_, err := repo.GetByID(ctx, testClinicID, "d-1")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("active clinic blocks deleting the last administrator", func(t *testing.T) {
+		repo, activate := newDentistRepo(t)
+		require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+		_, err := repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &yes, IsLegalRepresentative: &yes})
+		require.NoError(t, err)
+		activate("active")
+
+		err = repo.SoftDelete(ctx, testClinicID, "d-1", time.Now().UTC())
+		require.ErrorIs(t, err, ErrLastAdminRequired)
+	})
+}
+
+func TestMemoryRepository_List(t *testing.T) {
+	ctx := context.Background()
+	yes := true
+
+	repo, _ := newDentistRepo(t)
+	for i, email := range []string{"a@test.com", "b@test.com", "c@test.com"} {
+		d := newDentist("d-"+string(rune('1'+i)), email)
+		require.NoError(t, repo.Create(ctx, d))
+	}
+	_, err := repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &yes})
 	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
 
-	sqlxDB := sqlx.NewDb(db, "postgres")
-	return &postgresRepository{db: sqlxDB}, mock
+	t.Run("lists all non-deleted, ordered by CreatedAt", func(t *testing.T) {
+		result, err := repo.List(ctx, testClinicID, ListParams{Limit: 10})
+		require.NoError(t, err)
+		require.Equal(t, 3, result.Total)
+		require.Len(t, result.Items, 3)
+	})
+
+	t.Run("filters by IsAdministrator", func(t *testing.T) {
+		result, err := repo.List(ctx, testClinicID, ListParams{Limit: 10, IsAdministrator: &yes})
+		require.NoError(t, err)
+		require.Equal(t, 1, result.Total)
+		require.Equal(t, "d-1", result.Items[0].ID)
+	})
+
+	t.Run("pagination", func(t *testing.T) {
+		result, err := repo.List(ctx, testClinicID, ListParams{Limit: 2, Offset: 2})
+		require.NoError(t, err)
+		require.Equal(t, 3, result.Total)
+		require.Len(t, result.Items, 1)
+	})
+
+	t.Run("clinic not found returns not found", func(t *testing.T) {
+		_, err := repo.List(ctx, "missing-clinic", ListParams{Limit: 10})
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 }
 
-func TestPostgresRepository_Create(t *testing.T) {
-	now := time.Now().UTC()
-	d := Dentist{ID: "id-1", ClinicID: testClinicIDRepo, Name: "Dr. A", Phone: "123", Email: "a@x.com", CreatedAt: now, UpdatedAt: now}
+// TestMemoryRepository_ConcurrentDemote_LastAdminGuard replaces the
+// former Postgres integration test (internal/dentist/integration_test.go):
+// two concurrent UpdateRoles calls, each demoting one of a clinic's two
+// active administrators, must not both succeed. No real database is
+// needed anymore — run with `go test -race` to also confirm the guard
+// itself is race-free.
+func TestMemoryRepository_ConcurrentDemote_LastAdminGuard(t *testing.T) {
+	ctx := context.Background()
+	yes, no := true, false
 
-	tests := []struct {
-		name      string
-		setupMock func(mock sqlmock.Sqlmock)
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO dentists")).
-					WillReturnResult(sqlmock.NewResult(0, 1))
-			},
-		},
-		{
-			name: "unique violation maps to ErrEmailExists",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO dentists")).
-					WillReturnError(&pgconn.PgError{Code: uniqueViolationCode})
-			},
-			wantErr: ErrEmailExists,
-		},
-		{
-			name: "clinic inactive (EXISTS guard fails) maps to ErrNotFound",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("INSERT INTO dentists")).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-			},
-			wantErr: ErrNotFound,
-		},
-	}
+	repo, activate := newDentistRepo(t)
+	require.NoError(t, repo.Create(ctx, newDentist("d-1", "a@test.com")))
+	require.NoError(t, repo.Create(ctx, newDentist("d-2", "b@test.com")))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			tt.setupMock(mock)
-
-			err := repo.Create(context.Background(), d)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
-}
-
-func TestPostgresRepository_Create_QueryIncludesClinicActiveGuard(t *testing.T) {
-	repo, mock := newMockRepo(t)
-	now := time.Now().UTC()
-	d := Dentist{ID: "id-1", ClinicID: testClinicIDRepo, Name: "Dr. A", Phone: "123", Email: "a@x.com", CreatedAt: now, UpdatedAt: now}
-
-	mock.ExpectExec(regexp.QuoteMeta("EXISTS (SELECT 1 FROM clinics")).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	require.NoError(t, repo.Create(context.Background(), d))
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestPostgresRepository_GetByID(t *testing.T) {
-	now := time.Now().UTC()
-
-	tests := []struct {
-		name      string
-		setupMock func(mock sqlmock.Sqlmock)
-		wantErr   error
-		wantID    string
-	}{
-		{
-			name: "success",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				rows := sqlmock.NewRows([]string{"id", "clinic_id", "name", "phone", "email", "created_at", "updated_at", "deleted_at"}).
-					AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", now, now, nil)
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT d.* FROM dentists d")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(rows)
-			},
-			wantID: "id-1",
-		},
-		{
-			name: "not found (includes: id missing, soft-deleted, wrong clinic, or clinic inactive)",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT d.* FROM dentists d")).
-					WithArgs(testClinicIDRepo, "missing-id").
-					WillReturnRows(sqlmock.NewRows([]string{"id"}))
-			},
-			wantErr: ErrNotFound,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			tt.setupMock(mock)
-
-			id := "id-1"
-			if tt.wantErr != nil {
-				id = "missing-id"
-			}
-
-			d, err := repo.GetByID(context.Background(), testClinicIDRepo, id)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantID, d.ID)
-		})
-	}
-}
-
-func TestPostgresRepository_GetByID_QueryIncludesClinicActiveGuard(t *testing.T) {
-	repo, mock := newMockRepo(t)
-	mock.ExpectQuery(regexp.QuoteMeta("EXISTS (SELECT 1 FROM clinics")).
-		WithArgs(testClinicIDRepo, "id-1").
-		WillReturnRows(sqlmock.NewRows([]string{"id"}))
-
-	_, err := repo.GetByID(context.Background(), testClinicIDRepo, "id-1")
-	require.ErrorIs(t, err, ErrNotFound)
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestPostgresRepository_Update(t *testing.T) {
-	now := time.Now().UTC()
-	d := Dentist{ID: "id-1", ClinicID: testClinicIDRepo, Name: "Dr. A", Phone: "123", Email: "a@x.com", UpdatedAt: now}
-
-	tests := []struct {
-		name      string
-		setupMock func(mock sqlmock.Sqlmock)
-		wantErr   error
-	}{
-		{
-			name: "success",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE dentists")).
-					WillReturnResult(sqlmock.NewResult(0, 1))
-			},
-		},
-		{
-			name: "unique violation maps to ErrEmailExists",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE dentists")).
-					WillReturnError(&pgconn.PgError{Code: uniqueViolationCode})
-			},
-			wantErr: ErrEmailExists,
-		},
-		{
-			name: "not found (row missing, soft-deleted, or clinic inactive)",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE dentists")).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-			},
-			wantErr: ErrNotFound,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			tt.setupMock(mock)
-
-			err := repo.Update(context.Background(), d)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
-}
-
-func TestPostgresRepository_Update_QueryIncludesClinicActiveGuard(t *testing.T) {
-	repo, mock := newMockRepo(t)
-	now := time.Now().UTC()
-	d := Dentist{ID: "id-1", ClinicID: testClinicIDRepo, Name: "Dr. A", Phone: "123", Email: "a@x.com", UpdatedAt: now}
-
-	mock.ExpectExec(regexp.QuoteMeta("EXISTS (SELECT 1 FROM clinics")).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	require.NoError(t, repo.Update(context.Background(), d))
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-func expectLockClinic(mock sqlmock.Sqlmock, clinicID, status string) {
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT status FROM clinics")).
-		WithArgs(clinicID).
-		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow(status))
-}
-
-func expectLockClinicNotFound(mock sqlmock.Sqlmock, clinicID string) {
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT status FROM clinics")).
-		WithArgs(clinicID).
-		WillReturnRows(sqlmock.NewRows([]string{"status"}))
-}
-
-func dentistRows() []string {
-	return []string{"id", "clinic_id", "name", "phone", "email", "is_administrator", "is_legal_representative", "created_at", "updated_at", "deleted_at"}
-}
-
-func TestPostgresRepository_SoftDelete(t *testing.T) {
-	now := time.Now().UTC()
-
-	tests := []struct {
-		name      string
-		setupMock func(mock sqlmock.Sqlmock)
-		wantErr   error
-	}{
-		{
-			name: "success, clinic active, not the last responsible",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "active")
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE dentists SET deleted_at")).
-					WithArgs(testClinicIDRepo, "id-1", sqlmock.AnyArg(), true).
-					WillReturnResult(sqlmock.NewResult(0, 1))
-				mock.ExpectCommit()
-			},
-		},
-		{
-			name: "success, clinic pending, guard bypassed regardless of flags",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "pending")
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE dentists SET deleted_at")).
-					WithArgs(testClinicIDRepo, "id-1", sqlmock.AnyArg(), false).
-					WillReturnResult(sqlmock.NewResult(0, 1))
-				mock.ExpectCommit()
-			},
-		},
-		{
-			name: "clinic not found",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinicNotFound(mock, testClinicIDRepo)
-				mock.ExpectRollback()
-			},
-			wantErr: ErrClinicNotFound,
-		},
-		{
-			name: "dentist not found, clinic active",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "active")
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE dentists SET deleted_at")).
-					WithArgs(testClinicIDRepo, "id-1", sqlmock.AnyArg(), true).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM dentists")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(sqlmock.NewRows(dentistRows()))
-				mock.ExpectRollback()
-			},
-			wantErr: ErrNotFound,
-		},
-		{
-			name: "blocked: last administrator of an active clinic",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "active")
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE dentists SET deleted_at")).
-					WithArgs(testClinicIDRepo, "id-1", sqlmock.AnyArg(), true).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM dentists")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(sqlmock.NewRows(dentistRows()).
-						AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", true, false, now, now, nil))
-				mock.ExpectQuery(regexp.QuoteMeta("is_administrator = true)")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-				mock.ExpectRollback()
-			},
-			wantErr: ErrLastAdminRequired,
-		},
-		{
-			name: "blocked: last legal representative of an active clinic",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "active")
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE dentists SET deleted_at")).
-					WithArgs(testClinicIDRepo, "id-1", sqlmock.AnyArg(), true).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM dentists")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(sqlmock.NewRows(dentistRows()).
-						AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", false, true, now, now, nil))
-				mock.ExpectQuery(regexp.QuoteMeta("is_legal_representative = true)")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-				mock.ExpectRollback()
-			},
-			wantErr: ErrLastLegalRepresentativeRequired,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			tt.setupMock(mock)
-
-			err := repo.SoftDelete(context.Background(), testClinicIDRepo, "id-1", now)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				require.NoError(t, mock.ExpectationsWereMet())
-				return
-			}
-			require.NoError(t, err)
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
-}
-
-func TestPostgresRepository_SoftDelete_LocksClinicRow(t *testing.T) {
-	repo, mock := newMockRepo(t)
-
-	mock.ExpectBegin()
-	mock.ExpectQuery(regexp.QuoteMeta("FOR UPDATE")).
-		WithArgs(testClinicIDRepo).
-		WillReturnRows(sqlmock.NewRows([]string{"status"}).AddRow("active"))
-	mock.ExpectExec(regexp.QuoteMeta("UPDATE dentists SET deleted_at")).
-		WithArgs(testClinicIDRepo, "id-1", sqlmock.AnyArg(), true).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
-
-	require.NoError(t, repo.SoftDelete(context.Background(), testClinicIDRepo, "id-1", time.Now().UTC()))
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestPostgresRepository_UpdateRoles(t *testing.T) {
-	now := time.Now().UTC()
-
-	tests := []struct {
-		name      string
-		in        RolesInput
-		setupMock func(mock sqlmock.Sqlmock)
-		wantErr   error
-	}{
-		{
-			name: "promote to administrator, clinic pending, no activation yet",
-			in:   RolesInput{IsAdministrator: boolPtr(true)},
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "pending")
-				mock.ExpectQuery(regexp.QuoteMeta("UPDATE dentists")).
-					WillReturnRows(sqlmock.NewRows(dentistRows()).
-						AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", true, false, now, now, nil))
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE clinics SET status = 'active'")).
-					WithArgs(testClinicIDRepo, sqlmock.AnyArg()).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-				mock.ExpectCommit()
-			},
-		},
-		{
-			name: "promote both flags at once completes activation",
-			in:   RolesInput{IsAdministrator: boolPtr(true), IsLegalRepresentative: boolPtr(true)},
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "pending")
-				mock.ExpectQuery(regexp.QuoteMeta("UPDATE dentists")).
-					WillReturnRows(sqlmock.NewRows(dentistRows()).
-						AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", true, true, now, now, nil))
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE clinics SET status = 'active'")).
-					WithArgs(testClinicIDRepo, sqlmock.AnyArg()).
-					WillReturnResult(sqlmock.NewResult(0, 1))
-				mock.ExpectCommit()
-			},
-		},
-		{
-			name: "demote allowed, clinic active, not the last administrator",
-			in:   RolesInput{IsAdministrator: boolPtr(false)},
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "active")
-				mock.ExpectQuery(regexp.QuoteMeta("UPDATE dentists")).
-					WillReturnRows(sqlmock.NewRows(dentistRows()).
-						AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", false, false, now, now, nil))
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE clinics SET status = 'active'")).
-					WithArgs(testClinicIDRepo, sqlmock.AnyArg()).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-				mock.ExpectCommit()
-			},
-		},
-		{
-			name: "roles patch is idempotent",
-			in:   RolesInput{IsAdministrator: boolPtr(true)},
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "active")
-				mock.ExpectQuery(regexp.QuoteMeta("UPDATE dentists")).
-					WillReturnRows(sqlmock.NewRows(dentistRows()).
-						AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", true, false, now, now, nil))
-				mock.ExpectExec(regexp.QuoteMeta("UPDATE clinics SET status = 'active'")).
-					WithArgs(testClinicIDRepo, sqlmock.AnyArg()).
-					WillReturnResult(sqlmock.NewResult(0, 0))
-				mock.ExpectCommit()
-			},
-		},
-		{
-			name: "clinic not found",
-			in:   RolesInput{IsAdministrator: boolPtr(true)},
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinicNotFound(mock, testClinicIDRepo)
-				mock.ExpectRollback()
-			},
-			wantErr: ErrClinicNotFound,
-		},
-		{
-			name: "blocked: last administrator required, all-or-nothing (mixed promote+demote)",
-			in:   RolesInput{IsAdministrator: boolPtr(true), IsLegalRepresentative: boolPtr(false)},
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "active")
-				mock.ExpectQuery(regexp.QuoteMeta("UPDATE dentists")).
-					WillReturnRows(sqlmock.NewRows(dentistRows()))
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM dentists")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(sqlmock.NewRows(dentistRows()).
-						AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", false, true, now, now, nil))
-				mock.ExpectQuery(regexp.QuoteMeta("is_legal_representative = true)")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-				mock.ExpectRollback()
-			},
-			wantErr: ErrLastLegalRepresentativeRequired,
-		},
-		{
-			name: "error priority: administrator checked before legal representative",
-			in:   RolesInput{IsAdministrator: boolPtr(false), IsLegalRepresentative: boolPtr(false)},
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				expectLockClinic(mock, testClinicIDRepo, "active")
-				mock.ExpectQuery(regexp.QuoteMeta("UPDATE dentists")).
-					WillReturnRows(sqlmock.NewRows(dentistRows()))
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM dentists")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(sqlmock.NewRows(dentistRows()).
-						AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", true, true, now, now, nil))
-				mock.ExpectQuery(regexp.QuoteMeta("is_administrator = true)")).
-					WithArgs(testClinicIDRepo, "id-1").
-					WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-				mock.ExpectRollback()
-			},
-			wantErr: ErrLastAdminRequired,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			tt.setupMock(mock)
-
-			_, err := repo.UpdateRoles(context.Background(), testClinicIDRepo, "id-1", tt.in)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				require.NoError(t, mock.ExpectationsWereMet())
-				return
-			}
-			require.NoError(t, err)
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
-}
-
-func boolPtr(b bool) *bool { return &b }
-
-func TestPostgresRepository_List(t *testing.T) {
-	now := time.Now().UTC()
-	repo, mock := newMockRepo(t)
-
-	rows := sqlmock.NewRows([]string{"id", "clinic_id", "name", "phone", "email", "created_at", "updated_at", "deleted_at"}).
-		AddRow("id-1", testClinicIDRepo, "Dr. A", "123", "a@x.com", now, now, nil)
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM dentists")).
-		WithArgs(testClinicIDRepo, 20, 0).
-		WillReturnRows(rows)
-	mock.ExpectQuery(regexp.QuoteMeta("SELECT COUNT(*) FROM dentists")).
-		WithArgs(testClinicIDRepo).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-
-	result, err := repo.List(context.Background(), testClinicIDRepo, ListParams{Limit: 20, Offset: 0})
+	_, err := repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &yes, IsLegalRepresentative: &yes})
 	require.NoError(t, err)
-	require.Len(t, result.Items, 1)
-	require.Equal(t, 1, result.Total)
-}
-
-func TestPostgresRepository_List_QueriesIncludeClinicActiveGuard(t *testing.T) {
-	repo, mock := newMockRepo(t)
-
-	mock.ExpectQuery(regexp.QuoteMeta("EXISTS (SELECT 1 FROM clinics")).
-		WithArgs(testClinicIDRepo, 20, 0).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}))
-	mock.ExpectQuery(regexp.QuoteMeta("EXISTS (SELECT 1 FROM clinics")).
-		WithArgs(testClinicIDRepo).
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
-
-	result, err := repo.List(context.Background(), testClinicIDRepo, ListParams{Limit: 20, Offset: 0})
+	_, err = repo.UpdateRoles(ctx, testClinicID, "d-2", RolesInput{IsAdministrator: &yes})
 	require.NoError(t, err)
-	require.Empty(t, result.Items)
-	require.NoError(t, mock.ExpectationsWereMet())
+	activate("active")
+
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		_, errs[0] = repo.UpdateRoles(ctx, testClinicID, "d-1", RolesInput{IsAdministrator: &no})
+	}()
+	go func() {
+		defer wg.Done()
+		_, errs[1] = repo.UpdateRoles(ctx, testClinicID, "d-2", RolesInput{IsAdministrator: &no})
+	}()
+	wg.Wait()
+
+	successes, blocked := 0, 0
+	for _, e := range errs {
+		if e == nil {
+			successes++
+		} else {
+			blocked++
+		}
+	}
+	require.Equal(t, 1, successes, "exactly one concurrent demote must succeed")
+	require.Equal(t, 1, blocked, "exactly one concurrent demote must be rejected")
+
+	result, err := repo.List(ctx, testClinicID, ListParams{Limit: 10, IsAdministrator: &yes})
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Total, "clinic must end up with exactly one active administrator")
 }

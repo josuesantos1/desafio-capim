@@ -5,33 +5,15 @@ import (
 	"strings"
 )
 
-type DBConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	Name     string
-	SSLMode  string
-}
-
 type Config struct {
 	HTTPPort string
 	LogLevel string
-	DB       DBConfig
 }
 
 func Load() Config {
 	return Config{
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
 		LogLevel: normalizeLogLevel(getEnv("LOG_LEVEL", "info")),
-		DB: DBConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnv("DB_PORT", "5432"),
-			User:     getEnv("DB_USER", "postgres"),
-			Password: getEnv("DB_PASSWORD", ""),
-			Name:     getEnv("DB_NAME", "clinic"),
-			SSLMode:  getEnv("DB_SSLMODE", "disable"),
-		},
 	}
 }
 

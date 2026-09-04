@@ -2,153 +2,124 @@ package payment
 
 import (
 	"context"
-	"regexp"
 	"testing"
 	"time"
 
-	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/require"
+
+	"github.com/josuesantos1/desafio/internal/clinic"
+	"github.com/josuesantos1/desafio/internal/dentist"
 )
 
 const testClinicIDRepo = "11111111-1111-1111-1111-111111111111"
 
-func newMockRepo(t *testing.T) (*postgresRepository, sqlmock.Sqlmock) {
+func newPaymentRepo(t *testing.T) (*memoryRepository, *clinic.Clinic, *dentist.Dentist) {
 	t.Helper()
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
+	ctx := context.Background()
 
-	sqlxDB := sqlx.NewDb(db, "postgres")
-	return &postgresRepository{db: sqlxDB}, mock
-}
-
-func TestPostgresRepository_Create(t *testing.T) {
+	clinics := clinic.NewMemoryRepository()
 	now := time.Now().UTC()
-
-	tests := []struct {
-		name         string
-		payment      Payment
-		rowsAffected int64
-		wantErr      error
-	}{
-		{
-			name:         "success without dentist",
-			payment:      Payment{ID: "id-1", ClinicID: testClinicIDRepo, AmountCents: 15000, Status: StatusPending, PixCode: "code", CreatedAt: now, UpdatedAt: now},
-			rowsAffected: 1,
-		},
-		{
-			name:         "clinic inactive (EXISTS guard fails)",
-			payment:      Payment{ID: "id-1", ClinicID: testClinicIDRepo, AmountCents: 15000, Status: StatusPending, PixCode: "code", CreatedAt: now, UpdatedAt: now},
-			rowsAffected: 0,
-			wantErr:      ErrNotFound,
-		},
+	c := clinic.Clinic{
+		ID: testClinicIDRepo, Document: "doc-1", LegalName: "L", TradeName: "T",
+		Status: clinic.StatusActive, CreatedAt: now, UpdatedAt: now,
 	}
+	require.NoError(t, clinics.Create(ctx, c))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			mock.ExpectExec(regexp.QuoteMeta("INSERT INTO payments")).
-				WillReturnResult(sqlmock.NewResult(0, tt.rowsAffected))
-
-			err := repo.Create(context.Background(), tt.payment)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
+	dentists := dentist.NewMemoryRepository(clinics)
+	d := dentist.Dentist{
+		ID: "dentist-1", ClinicID: testClinicIDRepo, Name: "Dr. X", Phone: "1", Email: "x@test.com",
+		CreatedAt: now, UpdatedAt: now,
 	}
+	require.NoError(t, dentists.Create(ctx, d))
+
+	return NewMemoryRepository(clinics, dentists), &c, &d
 }
 
-func TestPostgresRepository_Create_QueryIncludesClinicAndDentistGuards(t *testing.T) {
-	repo, mock := newMockRepo(t)
+func newPayment(id, clinicID string, dentistID *string) Payment {
 	now := time.Now().UTC()
-	dentistID := "22222222-2222-2222-2222-222222222222"
-	p := Payment{ID: "id-1", ClinicID: testClinicIDRepo, DentistID: &dentistID, AmountCents: 15000, Status: StatusPending, PixCode: "code", CreatedAt: now, UpdatedAt: now}
-
-	mock.ExpectExec(regexp.QuoteMeta("EXISTS (SELECT 1 FROM clinics")).
-		WillReturnResult(sqlmock.NewResult(0, 1))
-
-	require.NoError(t, repo.Create(context.Background(), p))
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestPostgresRepository_GetByID(t *testing.T) {
-	now := time.Now().UTC()
-
-	tests := []struct {
-		name      string
-		setupMock func(mock sqlmock.Sqlmock)
-		wantErr   error
-		wantID    string
-	}{
-		{
-			name: "success",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				rows := sqlmock.NewRows([]string{"id", "clinic_id", "dentist_id", "amount_cents", "status", "pix_code", "created_at", "updated_at", "approved_at"}).
-					AddRow("id-1", testClinicIDRepo, nil, 15000, StatusPending, "code", now, now, nil)
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM payments")).WithArgs("id-1").WillReturnRows(rows)
-			},
-			wantID: "id-1",
-		},
-		{
-			name: "not found",
-			setupMock: func(mock sqlmock.Sqlmock) {
-				mock.ExpectQuery(regexp.QuoteMeta("SELECT * FROM payments")).WithArgs("missing-id").WillReturnRows(sqlmock.NewRows([]string{"id"}))
-			},
-			wantErr: ErrNotFound,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			tt.setupMock(mock)
-
-			id := "id-1"
-			if tt.wantErr != nil {
-				id = "missing-id"
-			}
-
-			p, err := repo.GetByID(context.Background(), id)
-
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-			require.Equal(t, tt.wantID, p.ID)
-		})
+	return Payment{
+		ID: id, ClinicID: clinicID, DentistID: dentistID, AmountCents: 1000,
+		Status: StatusPending, PixCode: "code", CreatedAt: now, UpdatedAt: now,
 	}
 }
 
-func TestPostgresRepository_Approve(t *testing.T) {
-	tests := []struct {
-		name         string
-		rowsAffected int64
-		wantErr      error
-	}{
-		{name: "success", rowsAffected: 1},
-		{name: "already approved or missing", rowsAffected: 0, wantErr: ErrNotFound},
-	}
+func TestMemoryRepository_Create(t *testing.T) {
+	ctx := context.Background()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo, mock := newMockRepo(t)
-			mock.ExpectExec(regexp.QuoteMeta("UPDATE payments SET status = 'approved'")).
-				WithArgs("id-1", sqlmock.AnyArg()).
-				WillReturnResult(sqlmock.NewResult(0, tt.rowsAffected))
+	t.Run("success without dentist", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil)))
+	})
 
-			err := repo.Approve(context.Background(), "id-1", time.Now().UTC())
+	t.Run("success with dentist", func(t *testing.T) {
+		repo, _, d := newPaymentRepo(t)
+		require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, &d.ID)))
+	})
 
-			if tt.wantErr != nil {
-				require.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
+	t.Run("clinic not found returns ErrNotFound", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		err := repo.Create(ctx, newPayment("p-1", "missing-clinic", nil))
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("dentist not found returns ErrNotFound", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		missing := "missing-dentist"
+		err := repo.Create(ctx, newPayment("p-1", testClinicIDRepo, &missing))
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("dentist belonging to another clinic returns ErrNotFound", func(t *testing.T) {
+		repo, _, d := newPaymentRepo(t)
+		err := repo.Create(ctx, newPayment("p-1", "other-clinic", &d.ID))
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+}
+
+func TestMemoryRepository_GetByID(t *testing.T) {
+	ctx := context.Background()
+	repo, _, _ := newPaymentRepo(t)
+	require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil)))
+
+	t.Run("success", func(t *testing.T) {
+		got, err := repo.GetByID(ctx, "p-1")
+		require.NoError(t, err)
+		require.Equal(t, StatusPending, got.Status)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		_, err := repo.GetByID(ctx, "missing")
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+}
+
+func TestMemoryRepository_Approve(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil)))
+
+		require.NoError(t, repo.Approve(ctx, "p-1", time.Now().UTC()))
+
+		got, err := repo.GetByID(ctx, "p-1")
+		require.NoError(t, err)
+		require.Equal(t, StatusApproved, got.Status)
+		require.NotNil(t, got.ApprovedAt)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		err := repo.Approve(ctx, "missing", time.Now().UTC())
+		require.ErrorIs(t, err, ErrNotFound)
+	})
+
+	t.Run("double approve returns ErrNotFound (idempotency guard)", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		require.NoError(t, repo.Create(ctx, newPayment("p-1", testClinicIDRepo, nil)))
+		require.NoError(t, repo.Approve(ctx, "p-1", time.Now().UTC()))
+
+		err := repo.Approve(ctx, "p-1", time.Now().UTC())
+		require.ErrorIs(t, err, ErrNotFound)
+	})
 }
