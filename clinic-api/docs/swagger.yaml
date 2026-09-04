@@ -9,6 +9,14 @@ definitions:
       bank:
         type: string
     type: object
+  clinic.ClinicStatus:
+    enum:
+    - pending
+    - active
+    type: string
+    x-enum-varnames:
+    - StatusPending
+    - StatusActive
   clinic.CreateInput:
     properties:
       banking:
@@ -55,6 +63,8 @@ definitions:
         type: string
       legal_name:
         type: string
+      status:
+        $ref: '#/definitions/clinic.ClinicStatus'
       trade_name:
         type: string
       updated_at:
@@ -80,6 +90,13 @@ definitions:
       phone:
         type: string
     type: object
+  dentist.RolesInput:
+    properties:
+      is_administrator:
+        type: boolean
+      is_legal_representative:
+        type: boolean
+    type: object
   dentist.UpdateInput:
     properties:
       email:
@@ -99,6 +116,10 @@ definitions:
         type: string
       id:
         type: string
+      is_administrator:
+        type: boolean
+      is_legal_representative:
+        type: boolean
       name:
         type: string
       phone:
@@ -222,6 +243,14 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Filter by administrator flag
+        in: query
+        name: is_administrator
+        type: boolean
+      - description: Filter by legal representative flag
+        in: query
+        name: is_legal_representative
+        type: boolean
       produces:
       - application/json
       responses:
@@ -374,6 +403,49 @@ paths:
           schema:
             $ref: '#/definitions/dentist.errorResponse'
       summary: Update a dentist (partial)
+      tags:
+      - dentists
+  /clinics/{clinic_id}/dentists/{id}/roles:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Clinic ID
+        in: path
+        name: clinic_id
+        required: true
+        type: string
+      - description: Dentist ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Flags to update (at least one required)
+        in: body
+        name: roles
+        required: true
+        schema:
+          $ref: '#/definitions/dentist.RolesInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dentist.dentistResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/dentist.errorResponse'
+      summary: Update a dentist's administrator/legal representative flags
       tags:
       - dentists
   /clinics/{id}:

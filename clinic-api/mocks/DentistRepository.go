@@ -365,3 +365,81 @@ func (_c *DentistRepository_Update_Call) RunAndReturn(run func(ctx context.Conte
 	_c.Call.Return(run)
 	return _c
 }
+
+// UpdateRoles provides a mock function for the type DentistRepository
+func (_mock *DentistRepository) UpdateRoles(ctx context.Context, clinicID string, id string, in dentist.RolesInput) (dentist.Dentist, error) {
+	ret := _mock.Called(ctx, clinicID, id, in)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateRoles")
+	}
+
+	var r0 dentist.Dentist
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, dentist.RolesInput) (dentist.Dentist, error)); ok {
+		return returnFunc(ctx, clinicID, id, in)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, dentist.RolesInput) dentist.Dentist); ok {
+		r0 = returnFunc(ctx, clinicID, id, in)
+	} else {
+		r0 = ret.Get(0).(dentist.Dentist)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, dentist.RolesInput) error); ok {
+		r1 = returnFunc(ctx, clinicID, id, in)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// DentistRepository_UpdateRoles_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateRoles'
+type DentistRepository_UpdateRoles_Call struct {
+	*mock.Call
+}
+
+// UpdateRoles is a helper method to define mock.On call
+//   - ctx context.Context
+//   - clinicID string
+//   - id string
+//   - in dentist.RolesInput
+func (_e *DentistRepository_Expecter) UpdateRoles(ctx any, clinicID any, id any, in any) *DentistRepository_UpdateRoles_Call {
+	return &DentistRepository_UpdateRoles_Call{Call: _e.mock.On("UpdateRoles", ctx, clinicID, id, in)}
+}
+
+func (_c *DentistRepository_UpdateRoles_Call) Run(run func(ctx context.Context, clinicID string, id string, in dentist.RolesInput)) *DentistRepository_UpdateRoles_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 dentist.RolesInput
+		if args[3] != nil {
+			arg3 = args[3].(dentist.RolesInput)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *DentistRepository_UpdateRoles_Call) Return(dentist1 dentist.Dentist, err error) *DentistRepository_UpdateRoles_Call {
+	_c.Call.Return(dentist1, err)
+	return _c
+}
+
+func (_c *DentistRepository_UpdateRoles_Call) RunAndReturn(run func(ctx context.Context, clinicID string, id string, in dentist.RolesInput) (dentist.Dentist, error)) *DentistRepository_UpdateRoles_Call {
+	_c.Call.Return(run)
+	return _c
+}

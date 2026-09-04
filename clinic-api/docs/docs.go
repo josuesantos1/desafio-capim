@@ -88,6 +88,18 @@ const docTemplate = `{
                         "description": "Offset (default 0)",
                         "name": "offset",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by administrator flag",
+                        "name": "is_administrator",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by legal representative flag",
+                        "name": "is_legal_representative",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -310,6 +322,71 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dentist.errorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/clinics/{clinic_id}/dentists/{id}/roles": {
+            "patch": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dentists"
+                ],
+                "summary": "Update a dentist's administrator/legal representative flags",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Clinic ID",
+                        "name": "clinic_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Dentist ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Flags to update (at least one required)",
+                        "name": "roles",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dentist.RolesInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dentist.dentistResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dentist.errorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dentist.errorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/dentist.errorResponse"
                         }
@@ -540,6 +617,17 @@ const docTemplate = `{
                 }
             }
         },
+        "clinic.ClinicStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "active"
+            ],
+            "x-enum-varnames": [
+                "StatusPending",
+                "StatusActive"
+            ]
+        },
         "clinic.CreateInput": {
             "type": "object",
             "properties": {
@@ -607,6 +695,9 @@ const docTemplate = `{
                 "legal_name": {
                     "type": "string"
                 },
+                "status": {
+                    "$ref": "#/definitions/clinic.ClinicStatus"
+                },
                 "trade_name": {
                     "type": "string"
                 },
@@ -646,6 +737,17 @@ const docTemplate = `{
                 }
             }
         },
+        "dentist.RolesInput": {
+            "type": "object",
+            "properties": {
+                "is_administrator": {
+                    "type": "boolean"
+                },
+                "is_legal_representative": {
+                    "type": "boolean"
+                }
+            }
+        },
         "dentist.UpdateInput": {
             "type": "object",
             "properties": {
@@ -674,6 +776,12 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_administrator": {
+                    "type": "boolean"
+                },
+                "is_legal_representative": {
+                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"
