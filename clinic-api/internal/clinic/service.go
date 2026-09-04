@@ -28,6 +28,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Clinic, error) {
 		Document:  normalizedDocument,
 		LegalName: in.LegalName,
 		TradeName: in.TradeName,
+		Status:    StatusPending,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}

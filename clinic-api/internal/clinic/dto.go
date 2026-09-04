@@ -14,6 +14,7 @@ type clinicResponse struct {
 	LegalName string           `json:"legal_name"`
 	TradeName string           `json:"trade_name"`
 	Banking   *bankingResponse `json:"banking"`
+	Status    ClinicStatus     `json:"status"`
 	CreatedAt time.Time        `json:"created_at"`
 	UpdatedAt time.Time        `json:"updated_at"`
 }
@@ -24,6 +25,7 @@ func toClinicResponse(c Clinic) clinicResponse {
 		Document:  c.Document,
 		LegalName: c.LegalName,
 		TradeName: c.TradeName,
+		Status:    c.Status,
 		CreatedAt: c.CreatedAt,
 		UpdatedAt: c.UpdatedAt,
 	}

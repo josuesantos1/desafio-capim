@@ -70,6 +70,9 @@ func TestHandler_CreateClinic(t *testing.T) {
 			if tt.wantError != "" {
 				require.Contains(t, rec.Body.String(), tt.wantError)
 			}
+			if tt.wantStatus == http.StatusCreated {
+				require.Contains(t, rec.Body.String(), `"status":"pending"`)
+			}
 		})
 	}
 }

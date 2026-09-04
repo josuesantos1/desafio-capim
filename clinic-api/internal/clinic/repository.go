@@ -45,6 +45,7 @@ type clinicRow struct {
 	Bank      *string    `db:"bank"`
 	Agency    *string    `db:"agency"`
 	Account   *string    `db:"account"`
+	Status    string     `db:"status"`
 	CreatedAt time.Time  `db:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at"`
 	DeletedAt *time.Time `db:"deleted_at"`
@@ -52,8 +53,8 @@ type clinicRow struct {
 
 func (r *postgresRepository) Create(ctx context.Context, c Clinic) error {
 	const query = `
-		INSERT INTO clinics (id, document, legal_name, trade_name, bank, agency, account, created_at, updated_at)
-		VALUES (:id, :document, :legal_name, :trade_name, :bank, :agency, :account, :created_at, :updated_at)`
+		INSERT INTO clinics (id, document, legal_name, trade_name, bank, agency, account, status, created_at, updated_at)
+		VALUES (:id, :document, :legal_name, :trade_name, :bank, :agency, :account, :status, :created_at, :updated_at)`
 
 	_, err := r.db.NamedExecContext(ctx, query, toRow(c))
 	if isUniqueViolation(err) {
@@ -132,6 +133,7 @@ func toRow(c Clinic) clinicRow {
 		Bank:      c.Bank,
 		Agency:    c.Agency,
 		Account:   c.Account,
+		Status:    string(c.Status),
 		CreatedAt: c.CreatedAt,
 		UpdatedAt: c.UpdatedAt,
 		DeletedAt: c.DeletedAt,
@@ -147,6 +149,7 @@ func (row clinicRow) toClinic() Clinic {
 		Bank:      row.Bank,
 		Agency:    row.Agency,
 		Account:   row.Account,
+		Status:    ClinicStatus(row.Status),
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 		DeletedAt: row.DeletedAt,
