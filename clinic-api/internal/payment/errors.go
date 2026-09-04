@@ -6,6 +6,7 @@ var (
 	ErrValidation      = errors.New("payment: validation failed")
 	ErrClinicNotFound  = errors.New("payment: clinic not found")
 	ErrDentistNotFound = errors.New("payment: dentist not found")
+	ErrClinicNotActive = errors.New("payment: clinic not active")
 )
 
 // ValidationError wraps ErrValidation carrying the invalid fields and

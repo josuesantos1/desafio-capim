@@ -78,6 +78,8 @@ func writeDomainError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusBadRequest, "VALIDATION_ERROR", "request validation failed", validationErr.Fields)
 	case errors.Is(err, ErrClinicNotFound):
 		writeError(w, http.StatusNotFound, "CLINIC_NOT_FOUND", "clinic not found", nil)
+	case errors.Is(err, ErrClinicNotActive):
+		writeError(w, http.StatusConflict, "CLINIC_NOT_ACTIVE", "clinic must be active (have an administrator and a legal representative) to receive payments", nil)
 	case errors.Is(err, ErrDentistNotFound):
 		writeError(w, http.StatusNotFound, "DENTIST_NOT_FOUND", "dentist not found", nil)
 	case errors.Is(err, ErrNotFound):

@@ -54,7 +54,7 @@ func TestService_Create(t *testing.T) {
 				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 			},
 			setupClinic: func(clinicRepo *mocks.Repository) {
-				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID}, nil).Once()
+				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
 			},
 			setupDentist: func(dentistRepo *mocks.DentistRepository) {},
 		},
@@ -65,7 +65,7 @@ func TestService_Create(t *testing.T) {
 				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 			},
 			setupClinic: func(clinicRepo *mocks.Repository) {
-				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID}, nil).Once()
+				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
 			},
 			setupDentist: func(dentistRepo *mocks.DentistRepository) {
 				dentistRepo.EXPECT().GetByID(mock.Anything, testClinicID, testDentistID).
@@ -87,13 +87,23 @@ func TestService_Create(t *testing.T) {
 			in:        payment.CreateInput{ClinicID: testClinicID, Amount: 15000, DentistID: strPtr(testDentistID)},
 			setupRepo: func(repo *mocks.PaymentRepository) {},
 			setupClinic: func(clinicRepo *mocks.Repository) {
-				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID}, nil).Once()
+				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
 			},
 			setupDentist: func(dentistRepo *mocks.DentistRepository) {
 				dentistRepo.EXPECT().GetByID(mock.Anything, testClinicID, testDentistID).
 					Return(dentist.Dentist{}, dentist.ErrNotFound).Once()
 			},
 			wantErr: payment.ErrDentistNotFound,
+		},
+		{
+			name:      "clinic pending (not yet active)",
+			in:        payment.CreateInput{ClinicID: testClinicID, Amount: 15000},
+			setupRepo: func(repo *mocks.PaymentRepository) {},
+			setupClinic: func(clinicRepo *mocks.Repository) {
+				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusPending}, nil).Once()
+			},
+			setupDentist: func(dentistRepo *mocks.DentistRepository) {},
+			wantErr:      payment.ErrClinicNotActive,
 		},
 		{
 			name:              "validation error",
@@ -191,7 +201,7 @@ func TestService_Create_SchedulesBackgroundApproval(t *testing.T) {
 	clinicRepo := mocks.NewRepository(t)
 	dentistRepo := mocks.NewDentistRepository(t)
 
-	clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID}, nil).Once()
+	clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusActive}, nil).Once()
 	repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 
 	approved := make(chan struct{})

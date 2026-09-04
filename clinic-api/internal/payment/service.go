@@ -73,11 +73,15 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Payment, error) {
 		return Payment{}, err
 	}
 
-	if _, err := s.clinicRepo.GetByID(ctx, in.ClinicID); err != nil {
+	c, err := s.clinicRepo.GetByID(ctx, in.ClinicID)
+	if err != nil {
 		if errors.Is(err, clinic.ErrNotFound) {
 			return Payment{}, ErrClinicNotFound
 		}
 		return Payment{}, fmt.Errorf("payment: check clinic: %w", err)
+	}
+	if c.Status != clinic.StatusActive {
+		return Payment{}, ErrClinicNotActive
 	}
 
 	if in.DentistID != nil {

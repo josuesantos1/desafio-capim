@@ -46,7 +46,7 @@ func TestHandler_CreatePayment(t *testing.T) {
 				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
 			},
 			setupClinic: func(clinicRepo *mocks.Repository) {
-				clinicRepo.EXPECT().GetByID(mock.Anything, clinicID).Return(clinic.Clinic{ID: clinicID}, nil).Once()
+				clinicRepo.EXPECT().GetByID(mock.Anything, clinicID).Return(clinic.Clinic{ID: clinicID, Status: clinic.StatusActive}, nil).Once()
 			},
 			wantStatus: http.StatusCreated,
 		},
@@ -59,6 +59,16 @@ func TestHandler_CreatePayment(t *testing.T) {
 			},
 			wantStatus: http.StatusNotFound,
 			wantError:  "CLINIC_NOT_FOUND",
+		},
+		{
+			name:      "clinic pending (not yet active)",
+			body:      `{"clinic_id":"` + clinicID + `","amount":15000}`,
+			setupRepo: func(repo *mocks.PaymentRepository) {},
+			setupClinic: func(clinicRepo *mocks.Repository) {
+				clinicRepo.EXPECT().GetByID(mock.Anything, clinicID).Return(clinic.Clinic{ID: clinicID, Status: clinic.StatusPending}, nil).Once()
+			},
+			wantStatus: http.StatusConflict,
+			wantError:  "CLINIC_NOT_ACTIVE",
 		},
 		{
 			name:        "validation error",
