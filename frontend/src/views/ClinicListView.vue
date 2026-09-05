@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useClinicsStore } from '../stores/clinics'
 import ErrorBanner from '../components/ErrorBanner.vue'
@@ -18,6 +18,12 @@ const bank = ref('')
 const agency = ref('')
 const account = ref('')
 
+onMounted(() => {
+  store.list({}).catch(() => {
+    // erro já está em store.error/resultsStatus
+  })
+})
+
 async function submit() {
   const input: ClinicCreateInput = {
     document: form.document,
@@ -29,6 +35,9 @@ async function submit() {
   }
   try {
     const clinic = await store.create(input)
+    store.list({}).catch(() => {
+      // erro já está em store.error/resultsStatus
+    })
     router.push(`/clinics/${clinic.id}`)
   } catch {
     // erro já está em store.error, exibido pelo ErrorBanner
@@ -81,13 +90,16 @@ async function submit() {
       </form>
     </div>
 
-    <h2>Clínicas desta sessão</h2>
-    <p v-if="store.list.length === 0" class="text-neutral-500 dark:text-neutral-400">
-      Nenhuma clínica criada/consultada ainda nesta sessão.
+    <h2>Clínicas</h2>
+    <div v-if="store.resultsStatus === 'error'" class="shell max-w-md">
+      <ErrorBanner :problem="store.error" />
+    </div>
+    <p v-else-if="store.results.length === 0" class="text-neutral-500 dark:text-neutral-400">
+      Nenhuma clínica cadastrada ainda.
     </p>
     <div v-else class="grid gap-4 sm:grid-cols-2">
       <router-link
-        v-for="clinic in store.list"
+        v-for="clinic in store.results"
         :key="clinic.id"
         :to="`/clinics/${clinic.id}`"
         class="shell no-underline"

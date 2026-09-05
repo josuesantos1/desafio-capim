@@ -61,15 +61,17 @@ watch(() => props.id, load)
                 <span v-if="clinic.status === 'pending'" class="badge">Em configuração</span>
               </h1>
               <p class="text-neutral-500 dark:text-neutral-400">
-                {{ mock.city }} · ★ {{ mock.rating }}
+                <template v-if="clinic.address?.city">{{ clinic.address.city }} · </template>★
+                {{ mock.rating }}
               </p>
             </div>
-            <a :href="`mailto:${mock.email}`">
+            <a v-if="clinic.email" :href="`mailto:${clinic.email}`">
               <button type="button" class="btn btn-primary group">
                 Entrar em contato
                 <span class="btn-icon !bg-white/20">↗</span>
               </button>
             </a>
+            <button v-else type="button" class="btn" disabled>Contato não informado</button>
           </div>
         </div>
       </div>
@@ -78,12 +80,17 @@ watch(() => props.id, load)
         <div class="shell">
           <div class="card">
             <h2 class="mt-0">Sobre</h2>
-            <p class="text-neutral-500 dark:text-neutral-400">{{ mock.description }}</p>
+            <p class="text-neutral-500 dark:text-neutral-400">
+              {{ clinic.description || 'Nenhuma descrição informada.' }}
+            </p>
 
             <h2>Especialidades</h2>
-            <div class="flex flex-wrap gap-2">
-              <span v-for="s in mock.specialties" :key="s" class="eyebrow normal-case">{{ s }}</span>
+            <div v-if="clinic.specialties.length" class="flex flex-wrap gap-2">
+              <span v-for="s in clinic.specialties" :key="s" class="eyebrow normal-case">{{ s }}</span>
             </div>
+            <p v-else class="text-neutral-500 dark:text-neutral-400">
+              Nenhuma especialidade informada.
+            </p>
           </div>
         </div>
 
@@ -91,11 +98,18 @@ watch(() => props.id, load)
           <div class="card">
             <h2 class="mt-0">Informações</h2>
             <ul class="list-plain">
-              <li class="list-item">Endereço: {{ mock.address }}</li>
-              <li class="list-item">Telefone: {{ mock.phone }}</li>
-              <li class="list-item">E-mail: {{ mock.email }}</li>
-              <li class="list-item">Website: {{ mock.website }}</li>
-              <li class="list-item">Horário: {{ mock.hours }}</li>
+              <li class="list-item">
+                Endereço:
+                {{
+                  clinic.address
+                    ? `${clinic.address.street}, ${clinic.address.city} - ${clinic.address.state}`
+                    : 'Endereço não informado'
+                }}
+              </li>
+              <li class="list-item">Telefone: {{ clinic.phone || 'Não informado' }}</li>
+              <li class="list-item">E-mail: {{ clinic.email || 'Não informado' }}</li>
+              <li class="list-item">Website: {{ clinic.website || 'Não informado' }}</li>
+              <li class="list-item">Horário: {{ clinic.opening_hours || 'Não informado' }}</li>
             </ul>
           </div>
         </div>
