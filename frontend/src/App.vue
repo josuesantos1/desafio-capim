@@ -1,4 +1,15 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { useRouter } from 'vue-router'
+import { useAuthStore } from './stores/auth'
+
+const router = useRouter()
+const authStore = useAuthStore()
+
+function logout() {
+  authStore.logout()
+  router.push('/')
+}
+</script>
 
 <template>
   <div class="fixed inset-0 -z-10 bg-neutral-50 dark:bg-neutral-950" />
@@ -24,6 +35,23 @@
         class="text-sm text-neutral-500 no-underline transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
       >
         Área de gestão
+      </router-link>
+      <template v-if="authStore.email">
+        <span class="text-sm text-neutral-500 dark:text-neutral-400">{{ authStore.email }}</span>
+        <button
+          type="button"
+          class="cursor-pointer border-0 bg-transparent p-0 text-sm text-neutral-500 transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
+          @click="logout"
+        >
+          Sair
+        </button>
+      </template>
+      <router-link
+        v-else
+        to="/login"
+        class="text-sm text-neutral-500 no-underline transition-colors hover:text-neutral-900 dark:hover:text-neutral-100"
+      >
+        Entrar
       </router-link>
     </div>
   </nav>
