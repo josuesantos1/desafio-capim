@@ -242,6 +242,19 @@ definitions:
       dentist_id:
         type: string
     type: object
+  payment.listResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/payment.paymentResponse'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
   payment.paymentResponse:
     properties:
       amount:
@@ -652,6 +665,43 @@ paths:
       tags:
       - clinics
   /payments:
+    get:
+      parameters:
+      - description: Clinic ID
+        in: query
+        name: clinic_id
+        required: true
+        type: string
+      - description: Filter by status (pending|approved)
+        in: query
+        name: status
+        type: string
+      - description: Page size (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/payment.listResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/problem.Details'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/problem.Details'
+      summary: List payments for a clinic (paginated)
+      tags:
+      - payments
     post:
       consumes:
       - application/json
