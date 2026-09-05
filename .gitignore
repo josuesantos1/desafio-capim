@@ -3,6 +3,8 @@
 CLAUDE.md
 skills-lock.json
 frontend
-**/*.md
+clinic-api/*.md
+persona
+ai.*
 *.pdf
 **/cache
