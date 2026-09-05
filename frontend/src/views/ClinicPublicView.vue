@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useClinicsStore } from '../stores/clinics'
 import { useDentistsStore } from '../stores/dentists'
-import { mockClinicProfile, mockDentistProfile } from '../mock/profile'
+import { mockClinicProfile } from '../mock/profile'
 
 const props = defineProps<{ id: string }>()
 
@@ -134,7 +134,7 @@ watch(() => props.id, load)
               <div>
                 <strong class="font-display">{{ dentist.name }}</strong>
                 <p class="text-sm text-neutral-500 dark:text-neutral-400">
-                  {{ mockDentistProfile(dentist).specialty }}
+                  {{ dentist.specialties[0] ?? 'Clínico Geral' }}
                 </p>
               </div>
               <span class="btn-icon !bg-neutral-900/5 dark:!bg-white/10">→</span>

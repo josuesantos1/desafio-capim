@@ -37,6 +37,9 @@ export interface Dentist {
   name: string
   phone: string
   email: string
+  bio: string
+  specialties: string[]
+  years_of_experience: number
   is_administrator: boolean
   is_legal_representative: boolean
   created_at: string
@@ -96,12 +99,18 @@ export interface DentistCreateInput {
   name: string
   phone: string
   email: string
+  bio?: string
+  specialties?: string[]
+  years_of_experience?: number
 }
 
 export interface DentistUpdateInput {
   name?: string
   phone?: string
   email?: string
+  bio?: string
+  specialties?: string[]
+  years_of_experience?: number
 }
 
 export interface DentistRolesInput {
