@@ -78,6 +78,7 @@ export interface ClinicCreateInput {
   document: string
   legal_name: string
   trade_name: string
+  email: string
   banking?: Banking
 }
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useClinicsStore } from '../stores/clinics'
+import { useAuthStore } from '../stores/auth'
 import ErrorBanner from '../components/ErrorBanner.vue'
 import ClinicDadosTab from '../components/ClinicDadosTab.vue'
 import ClinicDentistasTab from '../components/ClinicDentistasTab.vue'
@@ -9,9 +10,11 @@ import ClinicPaymentsTab from '../components/ClinicPaymentsTab.vue'
 const props = defineProps<{ id: string }>()
 
 const store = useClinicsStore()
+const authStore = useAuthStore()
 const activeTab = ref<'dados' | 'dentistas' | 'payments'>('dados')
 
 const clinic = computed(() => store.items.get(props.id) ?? null)
+const forbidden = computed(() => clinic.value !== null && !store.isOwner(clinic.value, authStore.email))
 
 async function load() {
   activeTab.value = 'dados'
@@ -43,7 +46,11 @@ watch(() => props.id, load)
     </div>
     <ErrorBanner :problem="store.error" />
 
-    <nav v-if="clinic" class="my-6 inline-flex w-max gap-1 rounded-full border border-neutral-900/10 bg-white p-1 dark:border-white/10 dark:bg-neutral-900">
+    <div v-if="clinic && forbidden" class="shell mt-6 max-w-md">
+      <p class="card text-neutral-500 dark:text-neutral-400">Você não tem acesso a esta clínica.</p>
+    </div>
+
+    <nav v-if="clinic && !forbidden" class="my-6 inline-flex w-max gap-1 rounded-full border border-neutral-900/10 bg-white p-1 dark:border-white/10 dark:bg-neutral-900">
       <button
         :class="[
           'rounded-full px-4 py-1.5 text-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
@@ -81,8 +88,8 @@ watch(() => props.id, load)
       </button>
     </nav>
 
-    <ClinicDadosTab v-if="clinic && activeTab === 'dados'" :clinic="clinic" />
-    <ClinicDentistasTab v-if="clinic && activeTab === 'dentistas'" :clinic-id="clinic.id" />
-    <ClinicPaymentsTab v-if="clinic && activeTab === 'payments'" :clinic="clinic" />
+    <ClinicDadosTab v-if="clinic && !forbidden && activeTab === 'dados'" :clinic="clinic" />
+    <ClinicDentistasTab v-if="clinic && !forbidden && activeTab === 'dentistas'" :clinic-id="clinic.id" />
+    <ClinicPaymentsTab v-if="clinic && !forbidden && activeTab === 'payments'" :clinic="clinic" />
   </section>
 </template>

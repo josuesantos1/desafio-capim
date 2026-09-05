@@ -1,25 +1,30 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useClinicsStore } from '../stores/clinics'
+import { useAuthStore } from '../stores/auth'
 import ErrorBanner from '../components/ErrorBanner.vue'
 import type { ClinicCreateInput } from '../types/api'
 
 const router = useRouter()
 const store = useClinicsStore()
+const authStore = useAuthStore()
 
 const form = reactive<ClinicCreateInput>({
   document: '',
   legal_name: '',
   trade_name: '',
+  email: '',
 })
 const withBanking = ref(false)
 const bank = ref('')
 const agency = ref('')
 const account = ref('')
 
+const myClinics = computed(() => store.results.filter((c) => store.isOwner(c, authStore.email)))
+
 onMounted(() => {
-  store.list({}).catch(() => {
+  store.list({ limit: 100 }).catch(() => {
     // erro já está em store.error/resultsStatus
   })
 })
@@ -29,13 +34,14 @@ async function submit() {
     document: form.document,
     legal_name: form.legal_name,
     trade_name: form.trade_name,
+    email: form.email,
     ...(withBanking.value
       ? { banking: { bank: bank.value, agency: agency.value, account: account.value } }
       : {}),
   }
   try {
     const clinic = await store.create(input)
-    store.list({}).catch(() => {
+    store.list({ limit: 100 }).catch(() => {
       // erro já está em store.error/resultsStatus
     })
     router.push(`/clinics/${clinic.id}`)
@@ -66,6 +72,10 @@ async function submit() {
           Nome fantasia
           <input v-model="form.trade_name" required class="input" />
         </label>
+        <label class="field">
+          E-mail
+          <input v-model="form.email" type="email" required class="input" />
+        </label>
         <label class="field-inline">
           <input v-model="withBanking" type="checkbox" />
           Informar dados bancários
@@ -90,16 +100,16 @@ async function submit() {
       </form>
     </div>
 
-    <h2>Clínicas</h2>
+    <h2>Minhas clínicas</h2>
     <div v-if="store.resultsStatus === 'error'" class="shell max-w-md">
       <ErrorBanner :problem="store.error" />
     </div>
-    <p v-else-if="store.results.length === 0" class="text-neutral-500 dark:text-neutral-400">
-      Nenhuma clínica cadastrada ainda.
+    <p v-else-if="myClinics.length === 0" class="text-neutral-500 dark:text-neutral-400">
+      Nenhuma clínica sua cadastrada ainda.
     </p>
     <div v-else class="grid gap-4 sm:grid-cols-2">
       <router-link
-        v-for="clinic in store.results"
+        v-for="clinic in myClinics"
         :key="clinic.id"
         :to="`/clinics/${clinic.id}`"
         class="shell no-underline"
