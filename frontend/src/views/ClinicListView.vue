@@ -40,47 +40,47 @@ async function submit() {
   <section>
     <h1>Clínicas</h1>
 
-    <form @submit.prevent="submit">
+    <form @submit.prevent="submit" class="form">
       <h2>Nova clínica</h2>
       <ErrorBanner :problem="store.error" />
-      <label>
+      <label class="field">
         Documento (CPF/CNPJ)
-        <input v-model="form.document" required />
+        <input v-model="form.document" required class="input" />
       </label>
-      <label>
+      <label class="field">
         Razão social
-        <input v-model="form.legal_name" required />
+        <input v-model="form.legal_name" required class="input" />
       </label>
-      <label>
+      <label class="field">
         Nome fantasia
-        <input v-model="form.trade_name" required />
+        <input v-model="form.trade_name" required class="input" />
       </label>
-      <label>
+      <label class="field-inline">
         <input v-model="withBanking" type="checkbox" />
         Informar dados bancários
       </label>
-      <fieldset v-if="withBanking">
-        <label>
+      <fieldset v-if="withBanking" class="flex flex-col gap-2 border-0 p-0">
+        <label class="field">
           Banco
-          <input v-model="bank" required />
+          <input v-model="bank" required class="input" />
         </label>
-        <label>
+        <label class="field">
           Agência
-          <input v-model="agency" required />
+          <input v-model="agency" required class="input" />
         </label>
-        <label>
+        <label class="field">
           Conta
-          <input v-model="account" required />
+          <input v-model="account" required class="input" />
         </label>
       </fieldset>
-      <button type="submit" :disabled="store.loading">Criar clínica</button>
+      <button type="submit" :disabled="store.loading" class="btn">Criar clínica</button>
     </form>
 
     <h2>Clínicas desta sessão</h2>
     <p v-if="store.list.length === 0">Nenhuma clínica criada/consultada ainda nesta sessão.</p>
-    <ul v-else>
-      <li v-for="clinic in store.list" :key="clinic.id">
-        <router-link :to="`/clinics/${clinic.id}`">
+    <ul v-else class="list-plain">
+      <li v-for="clinic in store.list" :key="clinic.id" class="list-item">
+        <router-link :to="`/clinics/${clinic.id}`" class="hover:underline">
           {{ clinic.trade_name }} — {{ clinic.status }}
         </router-link>
       </li>

@@ -28,25 +28,42 @@ watch(() => props.id, load)
 
 <template>
   <section>
-    <router-link to="/clinics">&larr; Clínicas</router-link>
+    <router-link to="/clinics" class="hover:underline">&larr; Clínicas</router-link>
 
-    <h1 v-if="clinic">{{ clinic.trade_name }}</h1>
+    <h1 v-if="clinic">
+      {{ clinic.trade_name }}
+      <router-link :to="`/c/${clinic.id}`" class="ml-3 text-sm font-normal hover:underline">
+        Ver perfil público
+      </router-link>
+    </h1>
     <ErrorBanner :problem="store.error" />
 
-    <nav v-if="clinic">
-      <button :class="{ active: activeTab === 'dados' }" @click="activeTab = 'dados'">
+    <nav v-if="clinic" class="my-4 flex gap-2">
+      <button
+        :class="[
+          'cursor-pointer border-0 bg-transparent p-0',
+          activeTab === 'dados' ? 'font-bold underline' : '',
+        ]"
+        @click="activeTab = 'dados'"
+      >
         Dados
       </button>
       <button
         :disabled="store.loading"
-        :class="{ active: activeTab === 'dentistas' }"
+        :class="[
+          'cursor-pointer border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50',
+          activeTab === 'dentistas' ? 'font-bold underline' : '',
+        ]"
         @click="activeTab = 'dentistas'"
       >
         Dentistas
       </button>
       <button
         :disabled="store.loading"
-        :class="{ active: activeTab === 'payments' }"
+        :class="[
+          'cursor-pointer border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50',
+          activeTab === 'payments' ? 'font-bold underline' : '',
+        ]"
         @click="activeTab = 'payments'"
       >
         Payments
@@ -58,16 +75,3 @@ watch(() => props.id, load)
     <ClinicPaymentsTab v-if="clinic && activeTab === 'payments'" :clinic="clinic" />
   </section>
 </template>
-
-<style scoped>
-nav {
-  display: flex;
-  gap: 8px;
-  margin: 16px 0;
-}
-
-nav button.active {
-  font-weight: bold;
-  text-decoration: underline;
-}
-</style>
