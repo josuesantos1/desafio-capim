@@ -99,7 +99,16 @@ func TestIntegration_CreateDentist(t *testing.T) {
 			},
 			body:         `{"name":"Dr. X","phone":"123","email":"x@test.com"}`,
 			wantStatus:   http.StatusCreated,
-			wantContains: "x@test.com",
+			wantContains: `"bio":"","specialties":[],"years_of_experience":0`,
+		},
+		{
+			name: "success with profile fields",
+			setup: func(t *testing.T, r chi.Router, clinicRepo clinic.Repository, dentistRepo dentist.Repository) {
+				mustCreateClinic(t, clinicRepo, integrationClinicID)
+			},
+			body:         `{"name":"Dr. X","phone":"123","email":"x@test.com","bio":"Especialista","specialties":["Ortodontia"],"years_of_experience":5}`,
+			wantStatus:   http.StatusCreated,
+			wantContains: `"bio":"Especialista","specialties":["Ortodontia"],"years_of_experience":5`,
 		},
 		{
 			name: "validation error",
@@ -213,6 +222,20 @@ func TestIntegration_UpdateDentist(t *testing.T) {
 			body:            `{"name":"Dr. Updated"}`,
 			wantStatus:      http.StatusOK,
 			wantGetContains: "Dr. Updated",
+		},
+		{
+			name: "specialties fully replaced, not merged",
+			setup: func(t *testing.T, r chi.Router, clinicRepo clinic.Repository, dentistRepo dentist.Repository) {
+				mustCreateClinic(t, clinicRepo, integrationClinicID)
+				mustCreateDentist(t, dentistRepo, integrationClinicID, integrationDentistID, "x@test.com")
+				require.NoError(t, dentistRepo.Update(t.Context(), dentist.Dentist{
+					ID: integrationDentistID, ClinicID: integrationClinicID, Name: "Dr. X", Phone: "123", Email: "x@test.com",
+					Specialties: []string{"Endodontia"},
+				}))
+			},
+			body:            `{"specialties":["Ortodontia","Implantodontia"]}`,
+			wantStatus:      http.StatusOK,
+			wantGetContains: `"specialties":["Ortodontia","Implantodontia"]`,
 		},
 		{
 			name: "not found",

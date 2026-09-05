@@ -34,13 +34,16 @@ func (s *Service) Create(ctx context.Context, clinicID string, in CreateInput) (
 
 	now := time.Now().UTC()
 	d := Dentist{
-		ID:        uuid.NewString(),
-		ClinicID:  clinicID,
-		Name:      in.Name,
-		Phone:     in.Phone,
-		Email:     in.Email,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:                uuid.NewString(),
+		ClinicID:          clinicID,
+		Name:              in.Name,
+		Phone:             in.Phone,
+		Email:             in.Email,
+		Bio:               in.Bio,
+		Specialties:       in.Specialties,
+		YearsOfExperience: in.YearsOfExperience,
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 
 	if err := s.repo.Create(ctx, d); err != nil {
@@ -83,6 +86,15 @@ func (s *Service) Update(ctx context.Context, clinicID, id string, in UpdateInpu
 	}
 	if in.Email != nil {
 		current.Email = *in.Email
+	}
+	if in.Bio != nil {
+		current.Bio = *in.Bio
+	}
+	if in.Specialties != nil {
+		current.Specialties = *in.Specialties
+	}
+	if in.YearsOfExperience != nil {
+		current.YearsOfExperience = *in.YearsOfExperience
 	}
 	current.UpdatedAt = time.Now().UTC()
 

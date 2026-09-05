@@ -8,6 +8,9 @@ type Dentist struct {
 	Name                  string
 	Phone                 string
 	Email                 string
+	Bio                   string
+	Specialties           []string
+	YearsOfExperience     int
 	IsAdministrator       bool
 	IsLegalRepresentative bool
 	CreatedAt             time.Time
@@ -16,15 +19,21 @@ type Dentist struct {
 }
 
 type CreateInput struct {
-	Name  string `json:"name"`
-	Phone string `json:"phone"`
-	Email string `json:"email"`
+	Name              string   `json:"name"`
+	Phone             string   `json:"phone"`
+	Email             string   `json:"email"`
+	Bio               string   `json:"bio"`
+	Specialties       []string `json:"specialties"`
+	YearsOfExperience int      `json:"years_of_experience"`
 }
 
 type UpdateInput struct {
-	Name  *string `json:"name"`
-	Phone *string `json:"phone"`
-	Email *string `json:"email"`
+	Name              *string   `json:"name"`
+	Phone             *string   `json:"phone"`
+	Email             *string   `json:"email"`
+	Bio               *string   `json:"bio"`
+	Specialties       *[]string `json:"specialties"`
+	YearsOfExperience *int      `json:"years_of_experience"`
 }
 
 type RolesInput struct {

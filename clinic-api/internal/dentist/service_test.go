@@ -91,6 +91,29 @@ func TestService_Create(t *testing.T) {
 	}
 }
 
+func TestService_Create_ProfileFields(t *testing.T) {
+	repo := mocks.NewDentistRepository(t)
+	clinicRepo := mocks.NewRepository(t)
+	expectClinicActive(clinicRepo)
+
+	var captured dentist.Dentist
+	repo.EXPECT().Create(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, d dentist.Dentist) { captured = d }).
+		Return(nil).Once()
+
+	svc := dentist.NewService(repo, clinicRepo)
+	in := dentist.CreateInput{
+		Name: "Dr. A", Phone: "123", Email: "a@x.com",
+		Bio: "Especialista em ortodontia", Specialties: []string{"Ortodontia"}, YearsOfExperience: 8,
+	}
+
+	_, err := svc.Create(context.Background(), testClinicID, in)
+	require.NoError(t, err)
+	assert.Equal(t, "Especialista em ortodontia", captured.Bio)
+	assert.Equal(t, []string{"Ortodontia"}, captured.Specialties)
+	assert.Equal(t, 8, captured.YearsOfExperience)
+}
+
 func TestService_Get(t *testing.T) {
 	found := dentist.Dentist{ID: "dentist-1", ClinicID: testClinicID}
 
@@ -247,6 +270,35 @@ func TestService_Update(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestService_Update_ProfileFields(t *testing.T) {
+	current := dentist.Dentist{
+		ID: "dentist-1", ClinicID: testClinicID, Name: "Old", Phone: "111", Email: "old@x.com",
+		Specialties: []string{"Endodontia"},
+	}
+	newSpecialties := []string{"Ortodontia", "Implantodontia"}
+	newBio := "Nova bio"
+	newYears := 12
+
+	repo := mocks.NewDentistRepository(t)
+	clinicRepo := mocks.NewRepository(t)
+	expectClinicActive(clinicRepo)
+	repo.EXPECT().GetByID(mock.Anything, testClinicID, "dentist-1").Return(current, nil).Once()
+
+	var captured dentist.Dentist
+	repo.EXPECT().Update(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, d dentist.Dentist) { captured = d }).
+		Return(nil).Once()
+
+	svc := dentist.NewService(repo, clinicRepo)
+	in := dentist.UpdateInput{Bio: &newBio, Specialties: &newSpecialties, YearsOfExperience: &newYears}
+
+	_, err := svc.Update(context.Background(), testClinicID, "dentist-1", in)
+	require.NoError(t, err)
+	assert.Equal(t, newBio, captured.Bio)
+	assert.Equal(t, newSpecialties, captured.Specialties, "specialties deve ser substituído por completo, não mesclado")
+	assert.Equal(t, newYears, captured.YearsOfExperience)
 }
 
 func TestService_UpdateRoles(t *testing.T) {
