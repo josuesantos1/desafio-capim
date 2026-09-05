@@ -41,11 +41,11 @@ export const useDentistsStore = defineStore('dentists', () => {
     }
   }
 
-  async function list(clinicId: string) {
+  async function list(clinicId: string, limit?: number) {
     loading.value = true
     error.value = null
     try {
-      const result = await dentistsApi.listDentists(clinicId)
+      const result = await dentistsApi.listDentists(clinicId, limit)
       byClinic.value.set(clinicId, [])
       for (const d of result.items) upsert(d)
       return result

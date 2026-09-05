@@ -1,29 +1,12 @@
 <script setup lang="ts"></script>
 
 <template>
-  <header>
-    <router-link to="/clinics">clinic-api</router-link>
+  <header class="border-b border-slate-200 px-6 py-4 text-left dark:border-slate-700">
+    <router-link to="/" class="font-semibold text-slate-900 no-underline dark:text-slate-100">
+      clinic-api
+    </router-link>
   </header>
-  <main>
+  <main class="p-6 text-left">
     <router-view />
   </main>
 </template>
-
-<style scoped>
-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
-}
-
-header a {
-  color: var(--text-h);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-main {
-  padding: 24px;
-  text-align: left;
-}
-</style>

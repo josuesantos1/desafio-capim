@@ -14,8 +14,9 @@ export function createDentist(clinicId: string, input: DentistCreateInput): Prom
   })
 }
 
-export function listDentists(clinicId: string): Promise<DentistListResult> {
-  return apiFetch<DentistListResult>(`/clinics/${clinicId}/dentists`)
+export function listDentists(clinicId: string, limit?: number): Promise<DentistListResult> {
+  const query = limit ? `?limit=${limit}` : ''
+  return apiFetch<DentistListResult>(`/clinics/${clinicId}/dentists${query}`)
 }
 
 export function updateDentist(
