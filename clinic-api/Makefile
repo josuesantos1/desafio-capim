@@ -2,6 +2,10 @@
 run:
 	@go run ./cmd
 
+.PHONY: seed
+seed:
+	@SEED_DATA=true go run ./cmd
+
 .PHONY: build
 build:
 	@go build -o ./bin/clinic-api ./cmd
