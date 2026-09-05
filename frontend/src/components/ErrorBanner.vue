@@ -9,29 +9,15 @@ const message = computed(() => (props.problem ? displayMessage(props.problem) : 
 </script>
 
 <template>
-  <div v-if="problem" class="error-banner">
+  <div
+    v-if="problem"
+    class="my-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-left text-red-800"
+  >
     <p>{{ message }}</p>
-    <ul v-if="problem.errors?.length">
+    <ul v-if="problem.errors?.length" class="mt-1.5 list-disc pl-5">
       <li v-for="fieldError in problem.errors" :key="fieldError.field">
         {{ fieldError.field }}: {{ fieldError.detail }}
       </li>
     </ul>
   </div>
 </template>
-
-<style scoped>
-.error-banner {
-  background: #fdecec;
-  border: 1px solid #f5b5b5;
-  color: #8a1f1f;
-  border-radius: 6px;
-  padding: 10px 14px;
-  margin: 8px 0;
-  text-align: left;
-}
-
-.error-banner ul {
-  margin: 6px 0 0;
-  padding-left: 18px;
-}
-</style>

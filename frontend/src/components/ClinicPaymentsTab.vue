@@ -47,15 +47,21 @@ function refresh(paymentId: string) {
   <div>
     <ErrorBanner :problem="paymentsStore.error" />
 
-    <form v-if="clinic.status === 'active'" @submit.prevent="submit">
+    <form v-if="clinic.status === 'active'" @submit.prevent="submit" class="form">
       <h2>Novo payment</h2>
-      <label>
+      <label class="field">
         Valor (R$)
-        <input v-model="amountReais" required inputmode="decimal" placeholder="0,00" />
+        <input
+          v-model="amountReais"
+          required
+          inputmode="decimal"
+          placeholder="0,00"
+          class="input"
+        />
       </label>
-      <label>
+      <label class="field">
         Dentista (opcional)
-        <select v-model="dentistId">
+        <select v-model="dentistId" class="input">
           <option value="">— nenhum —</option>
           <option
             v-for="dentist in dentistsStore.listByClinic(clinic.id)"
@@ -66,7 +72,7 @@ function refresh(paymentId: string) {
           </option>
         </select>
       </label>
-      <button type="submit" :disabled="paymentsStore.loading">Criar payment</button>
+      <button type="submit" :disabled="paymentsStore.loading" class="btn">Criar payment</button>
     </form>
     <p v-else>
       Esta clínica ainda não está ativa (precisa de ao menos um dentista administrador e um
@@ -77,10 +83,19 @@ function refresh(paymentId: string) {
     <p v-if="paymentsStore.listByClinic(clinic.id).length === 0">
       Nenhum payment criado/consultado ainda nesta sessão.
     </p>
-    <ul v-else>
-      <li v-for="payment in paymentsStore.listByClinic(clinic.id)" :key="payment.id">
-        R$ {{ (payment.amount / 100).toFixed(2) }} — {{ payment.status }}
-        <button type="button" :disabled="paymentsStore.loading" @click="refresh(payment.id)">
+    <ul v-else class="list-plain">
+      <li
+        v-for="payment in paymentsStore.listByClinic(clinic.id)"
+        :key="payment.id"
+        class="list-item flex items-center gap-3"
+      >
+        <span>R$ {{ (payment.amount / 100).toFixed(2) }} — {{ payment.status }}</span>
+        <button
+          type="button"
+          :disabled="paymentsStore.loading"
+          class="btn"
+          @click="refresh(payment.id)"
+        >
           Atualizar status
         </button>
       </li>
