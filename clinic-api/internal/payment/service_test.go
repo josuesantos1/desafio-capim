@@ -284,3 +284,51 @@ func TestService_Create_ReplayDoesNotScheduleApproval(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+func TestService_List(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupRepo   func(repo *mocks.PaymentRepository)
+		setupClinic func(clinicRepo *mocks.Repository)
+		wantErr     error
+	}{
+		{
+			name: "success",
+			setupRepo: func(repo *mocks.PaymentRepository) {
+				repo.EXPECT().List(mock.Anything, payment.ListParams{Limit: 20, Offset: 0, ClinicID: testClinicID}).
+					Return(payment.ListResult{}, nil).Once()
+			},
+			setupClinic: func(clinicRepo *mocks.Repository) {
+				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{ID: testClinicID, Status: clinic.StatusPending}, nil).Once()
+			},
+		},
+		{
+			name:      "clinic not found",
+			setupRepo: func(repo *mocks.PaymentRepository) {},
+			setupClinic: func(clinicRepo *mocks.Repository) {
+				clinicRepo.EXPECT().GetByID(mock.Anything, testClinicID).Return(clinic.Clinic{}, clinic.ErrNotFound).Once()
+			},
+			wantErr: payment.ErrClinicNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := mocks.NewPaymentRepository(t)
+			clinicRepo := mocks.NewRepository(t)
+			dentistRepo := mocks.NewDentistRepository(t)
+			tt.setupRepo(repo)
+			tt.setupClinic(clinicRepo)
+
+			svc := payment.NewService(repo, clinicRepo, dentistRepo, newFakePixProvider())
+
+			_, err := svc.List(context.Background(), payment.ListParams{ClinicID: testClinicID})
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}

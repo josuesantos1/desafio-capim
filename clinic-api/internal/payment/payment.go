@@ -25,3 +25,15 @@ type CreateInput struct {
 	Amount    int64   `json:"amount"`
 	DentistID *string `json:"dentist_id"`
 }
+
+type ListParams struct {
+	Limit    int
+	Offset   int
+	ClinicID string
+	Status   *string
+}
+
+type ListResult struct {
+	Items []Payment
+	Total int
+}

@@ -127,6 +127,46 @@ func (s *Service) Get(ctx context.Context, id string) (Payment, error) {
 	return p, nil
 }
 
+const (
+	defaultLimit = 20
+	maxLimit     = 100
+)
+
+func (s *Service) List(ctx context.Context, params ListParams) (ListResult, error) {
+	if _, err := s.clinicRepo.GetByID(ctx, params.ClinicID); err != nil {
+		if errors.Is(err, clinic.ErrNotFound) {
+			return ListResult{}, ErrClinicNotFound
+		}
+		return ListResult{}, fmt.Errorf("payment: check clinic: %w", err)
+	}
+
+	params.Limit = clampLimit(params.Limit)
+	params.Offset = clampOffset(params.Offset)
+
+	result, err := s.repo.List(ctx, params)
+	if err != nil {
+		return ListResult{}, fmt.Errorf("payment: list: %w", err)
+	}
+	return result, nil
+}
+
+func clampLimit(limit int) int {
+	if limit <= 0 {
+		return defaultLimit
+	}
+	if limit > maxLimit {
+		return maxLimit
+	}
+	return limit
+}
+
+func clampOffset(offset int) int {
+	if offset < 0 {
+		return 0
+	}
+	return offset
+}
+
 func (s *Service) scheduleApproval(id string) {
 	delay := s.approvalDelay()
 	go func() {

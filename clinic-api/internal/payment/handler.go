@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -16,6 +17,7 @@ import (
 func RegisterRoutes(r chi.Router, svc *Service) {
 	h := &handler{svc: svc}
 	r.Post("/payments", h.create)
+	r.Get("/payments", h.list)
 	r.Get("/payments/{id}", h.get)
 }
 
@@ -83,6 +85,61 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	problem.WriteJSON(w, http.StatusOK, toPaymentResponse(p))
+}
+
+// @Summary      List payments for a clinic (paginated)
+// @Tags         payments
+// @Produce      json
+// @Param        clinic_id  query     string  true   "Clinic ID"
+// @Param        status     query     string  false  "Filter by status (pending|approved)"
+// @Param        limit      query     int     false  "Page size (default 20, max 100)"
+// @Param        offset     query     int     false  "Offset (default 0)"
+// @Success      200        {object}  listResponse
+// @Failure      400        {object}  problem.Details
+// @Failure      404        {object}  problem.Details
+// @Router       /payments [get]
+func (h *handler) list(w http.ResponseWriter, r *http.Request) {
+	clinicID := r.URL.Query().Get("clinic_id")
+	if clinicID == "" {
+		problem.Write(w, http.StatusBadRequest, "VALIDATION_ERROR", "request validation failed",
+			map[string]string{"clinic_id": "is required"})
+		return
+	}
+	if _, err := uuid.Parse(clinicID); err != nil {
+		problem.Write(w, http.StatusBadRequest, "INVALID_ID", "clinic_id must be a valid UUID", nil)
+		return
+	}
+
+	params := ListParams{
+		Limit:    clampLimit(parseQueryInt(r, "limit")),
+		Offset:   clampOffset(parseQueryInt(r, "offset")),
+		ClinicID: clinicID,
+		Status:   parseQueryStatusPtr(r),
+	}
+
+	result, err := h.svc.List(r.Context(), params)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	problem.WriteJSON(w, http.StatusOK, toListResponse(result, params))
+}
+
+func parseQueryInt(r *http.Request, key string) int {
+	v, err := strconv.Atoi(r.URL.Query().Get(key))
+	if err != nil {
+		return 0
+	}
+	return v
+}
+
+func parseQueryStatusPtr(r *http.Request) *string {
+	raw := r.URL.Query().Get("status")
+	if raw != StatusPending && raw != StatusApproved {
+		return nil
+	}
+	return &raw
 }
 
 func writeDomainError(w http.ResponseWriter, err error) {

@@ -3,6 +3,7 @@ package payment
 import (
 	"context"
 	"errors"
+	"sort"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ type Repository interface {
 	Create(ctx context.Context, p Payment) (result Payment, created bool, err error)
 	GetByID(ctx context.Context, id string) (Payment, error)
 	Approve(ctx context.Context, id string, approvedAt time.Time) error
+	List(ctx context.Context, params ListParams) (ListResult, error)
 }
 
 type memoryRepository struct {
@@ -68,6 +70,25 @@ func (r *memoryRepository) GetByID(ctx context.Context, id string) (Payment, err
 		return Payment{}, ErrNotFound
 	}
 	return p, nil
+}
+
+func (r *memoryRepository) List(ctx context.Context, params ListParams) (ListResult, error) {
+	var items []Payment
+	for _, p := range r.store.All() {
+		if p.ClinicID != params.ClinicID {
+			continue
+		}
+		if params.Status != nil && p.Status != *params.Status {
+			continue
+		}
+		items = append(items, p)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+
+	total := len(items)
+	start := min(params.Offset, total)
+	end := min(start+params.Limit, total)
+	return ListResult{Items: items[start:end], Total: total}, nil
 }
 
 func (r *memoryRepository) Approve(ctx context.Context, id string, approvedAt time.Time) error {

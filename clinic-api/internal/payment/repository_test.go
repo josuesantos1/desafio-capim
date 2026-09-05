@@ -244,3 +244,77 @@ func TestMemoryRepository_Approve(t *testing.T) {
 		require.ErrorIs(t, err, ErrNotFound)
 	})
 }
+
+func TestMemoryRepository_List(t *testing.T) {
+	ctx := context.Background()
+	const otherClinicID = "22222222-2222-2222-2222-222222222222"
+	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	seed := func(repo *memoryRepository) {
+		p1 := newPayment("p-1", testClinicIDRepo, nil, "idem-1")
+		p1.Status = StatusPending
+		p1.CreatedAt = base
+		require.NoError(t, repo.store.Insert(p1.ID, p1))
+
+		p2 := newPayment("p-2", testClinicIDRepo, nil, "idem-2")
+		p2.Status = StatusApproved
+		p2.CreatedAt = base.Add(time.Hour)
+		require.NoError(t, repo.store.Insert(p2.ID, p2))
+
+		p3 := newPayment("p-3", testClinicIDRepo, nil, "idem-3")
+		p3.Status = StatusPending
+		p3.CreatedAt = base.Add(2 * time.Hour)
+		require.NoError(t, repo.store.Insert(p3.ID, p3))
+
+		other := newPayment("p-other", otherClinicID, nil, "idem-other")
+		other.CreatedAt = base.Add(3 * time.Hour)
+		require.NoError(t, repo.store.Insert(other.ID, other))
+	}
+
+	t.Run("no filter returns clinic's payments ordered by CreatedAt descending", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		seed(repo)
+
+		result, err := repo.List(ctx, ListParams{Limit: 20, ClinicID: testClinicIDRepo})
+		require.NoError(t, err)
+		require.Equal(t, 3, result.Total)
+		require.Equal(t, []string{"p-3", "p-2", "p-1"}, paymentIDs(result.Items))
+	})
+
+	t.Run("pagination slices by limit/offset but keeps total", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		seed(repo)
+
+		result, err := repo.List(ctx, ListParams{Limit: 1, Offset: 1, ClinicID: testClinicIDRepo})
+		require.NoError(t, err)
+		require.Equal(t, 3, result.Total)
+		require.Equal(t, []string{"p-2"}, paymentIDs(result.Items))
+	})
+
+	t.Run("filter by status", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		seed(repo)
+
+		approved := StatusApproved
+		result, err := repo.List(ctx, ListParams{Limit: 20, ClinicID: testClinicIDRepo, Status: &approved})
+		require.NoError(t, err)
+		require.Equal(t, []string{"p-2"}, paymentIDs(result.Items))
+	})
+
+	t.Run("isolates by clinic_id", func(t *testing.T) {
+		repo, _, _ := newPaymentRepo(t)
+		seed(repo)
+
+		result, err := repo.List(ctx, ListParams{Limit: 20, ClinicID: otherClinicID})
+		require.NoError(t, err)
+		require.Equal(t, []string{"p-other"}, paymentIDs(result.Items))
+	})
+}
+
+func paymentIDs(items []Payment) []string {
+	ids := make([]string, len(items))
+	for i, p := range items {
+		ids[i] = p.ID
+	}
+	return ids
+}

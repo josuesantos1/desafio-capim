@@ -276,3 +276,78 @@ func TestIntegration_GetPayment(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_ListPayments(t *testing.T) {
+	tests := []struct {
+		name         string
+		setup        setupFunc
+		query        string
+		wantStatus   int
+		wantContains string
+	}{
+		{
+			name:         "clinic_id missing",
+			query:        "",
+			wantStatus:   http.StatusBadRequest,
+			wantContains: "VALIDATION_ERROR",
+		},
+		{
+			name:         "clinic_id malformed",
+			query:        "?clinic_id=not-a-uuid",
+			wantStatus:   http.StatusBadRequest,
+			wantContains: "INVALID_ID",
+		},
+		{
+			name:         "clinic not found",
+			query:        "?clinic_id=" + integrationClinicID,
+			wantStatus:   http.StatusNotFound,
+			wantContains: "CLINIC_NOT_FOUND",
+		},
+		{
+			name:         "pending clinic without payments returns empty list, not an error",
+			setup:        func(t *testing.T, clinicRepo clinic.Repository, dentistRepo dentist.Repository) { mustCreateClinic(t, clinicRepo, integrationClinicID) },
+			query:        "?clinic_id=" + integrationClinicID,
+			wantStatus:   http.StatusOK,
+			wantContains: `"items":[],"total":0`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, clinicRepo, dentistRepo, _ := newIntegrationRouter(t)
+			if tt.setup != nil {
+				tt.setup(t, clinicRepo, dentistRepo)
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "/payments"+tt.query, nil)
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
+
+			require.Equal(t, tt.wantStatus, rec.Code, "body=%s", rec.Body.String())
+			require.Contains(t, rec.Body.String(), tt.wantContains)
+		})
+	}
+
+	t.Run("success with status filter and pagination", func(t *testing.T) {
+		r, clinicRepo, dentistRepo, _ := newIntegrationRouter(t)
+		activeClinicWithDentist(t, clinicRepo, dentistRepo)
+
+		rec1 := postPayment(r, `{"clinic_id":"`+integrationClinicID+`","amount":1000}`, "idem-1")
+		require.Equal(t, http.StatusCreated, rec1.Code, "body=%s", rec1.Body.String())
+		rec2 := postPayment(r, `{"clinic_id":"`+integrationClinicID+`","amount":2000}`, "idem-2")
+		require.Equal(t, http.StatusCreated, rec2.Code, "body=%s", rec2.Body.String())
+
+		req := httptest.NewRequest(http.MethodGet, "/payments?clinic_id="+integrationClinicID+"&status=pending", nil)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code, "body=%s", rec.Body.String())
+		require.Contains(t, rec.Body.String(), `"total":2`)
+
+		reqPage := httptest.NewRequest(http.MethodGet, "/payments?clinic_id="+integrationClinicID+"&limit=1", nil)
+		recPage := httptest.NewRecorder()
+		r.ServeHTTP(recPage, reqPage)
+		require.Equal(t, http.StatusOK, recPage.Code, "body=%s", recPage.Body.String())
+		require.Contains(t, recPage.Body.String(), `"limit":1`)
+	})
+}

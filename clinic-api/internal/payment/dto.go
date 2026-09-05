@@ -27,3 +27,18 @@ func toPaymentResponse(p Payment) paymentResponse {
 		ApprovedAt: p.ApprovedAt,
 	}
 }
+
+type listResponse struct {
+	Items  []paymentResponse `json:"items"`
+	Total  int               `json:"total"`
+	Limit  int               `json:"limit"`
+	Offset int               `json:"offset"`
+}
+
+func toListResponse(result ListResult, params ListParams) listResponse {
+	items := make([]paymentResponse, len(result.Items))
+	for i, p := range result.Items {
+		items[i] = toPaymentResponse(p)
+	}
+	return listResponse{Items: items, Total: result.Total, Limit: params.Limit, Offset: params.Offset}
+}
