@@ -123,5 +123,24 @@ export const useClinicsStore = defineStore('clinics', () => {
 
   const resultsStatus = computed(() => lastResult.value?.status ?? null)
 
-  return { items, loading, error, create, fetch, update, remove, list, results, resultsStatus }
+  // AVISO: checagem 100% cosmética/client-side — o backend não valida posse
+  // nenhuma, qualquer chamada direta à API ignora isso. Ver spec-mock-login.md
+  // (Overview) para o risco aceito conscientemente.
+  function isOwner(clinic: Clinic, email: string | null): boolean {
+    return email !== null && clinic.email === email
+  }
+
+  return {
+    items,
+    loading,
+    error,
+    create,
+    fetch,
+    update,
+    remove,
+    list,
+    results,
+    resultsStatus,
+    isOwner,
+  }
 })

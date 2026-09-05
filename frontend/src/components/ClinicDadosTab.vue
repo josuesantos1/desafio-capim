@@ -132,7 +132,7 @@ async function remove() {
         </label>
         <label class="field">
           E-mail
-          <input v-model="form.email" type="email" class="input" />
+          <input v-model="form.email" type="email" required class="input" />
         </label>
         <label class="field">
           Website
