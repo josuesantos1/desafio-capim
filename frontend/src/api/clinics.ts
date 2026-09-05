@@ -1,5 +1,5 @@
 import { apiFetch } from './http'
-import type { Clinic, ClinicCreateInput, ClinicUpdateInput } from '../types/api'
+import type { Clinic, ClinicCreateInput, ClinicListParams, ClinicListResult, ClinicUpdateInput } from '../types/api'
 
 export function createClinic(input: ClinicCreateInput): Promise<Clinic> {
   return apiFetch<Clinic>('/clinics', {
@@ -21,4 +21,14 @@ export function updateClinic(id: string, input: ClinicUpdateInput): Promise<Clin
 
 export function deleteClinic(id: string): Promise<void> {
   return apiFetch<void>(`/clinics/${id}`, { method: 'DELETE' })
+}
+
+export function listClinics(params: ClinicListParams = {}): Promise<ClinicListResult> {
+  const query = new URLSearchParams()
+  if (params.limit) query.set('limit', String(params.limit))
+  if (params.offset) query.set('offset', String(params.offset))
+  if (params.q) query.set('q', params.q)
+  if (params.city) query.set('city', params.city)
+  const qs = query.toString()
+  return apiFetch<ClinicListResult>(`/clinics${qs ? `?${qs}` : ''}`)
 }

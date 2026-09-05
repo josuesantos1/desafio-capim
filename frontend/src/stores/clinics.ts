@@ -2,7 +2,13 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import * as clinicsApi from '../api/clinics'
 import { ApiError } from '../api/http'
-import type { Clinic, ClinicCreateInput, ClinicUpdateInput, ProblemDetails } from '../types/api'
+import type {
+  Clinic,
+  ClinicCreateInput,
+  ClinicListParams,
+  ClinicUpdateInput,
+  ProblemDetails,
+} from '../types/api'
 import { useDentistsStore } from './dentists'
 import { usePaymentsStore } from './payments'
 
@@ -11,9 +17,13 @@ export const useClinicsStore = defineStore('clinics', () => {
   const loading = ref(false)
   const error = ref<ProblemDetails | null>(null)
 
-  const list = computed(() =>
-    [...items.value.values()].sort((a, b) => b.created_at.localeCompare(a.created_at)),
-  )
+  const lastResult = ref<{
+    status: 'success' | 'error'
+    ids: string[]
+    total: number
+    limit: number
+    offset: number
+  } | null>(null)
 
   async function create(input: ClinicCreateInput) {
     loading.value = true
@@ -76,5 +86,42 @@ export const useClinicsStore = defineStore('clinics', () => {
     }
   }
 
-  return { items, loading, error, list, create, fetch, update, remove }
+  async function list(params: ClinicListParams = {}) {
+    loading.value = true
+    error.value = null
+    try {
+      const result = await clinicsApi.listClinics(params)
+      for (const c of result.items) items.value.set(c.id, c)
+      lastResult.value = {
+        status: 'success',
+        ids: result.items.map((c) => c.id),
+        total: result.total,
+        limit: result.limit,
+        offset: result.offset,
+      }
+      return result
+    } catch (err) {
+      if (err instanceof ApiError) error.value = err.problem
+      lastResult.value = {
+        status: 'error',
+        ids: [],
+        total: 0,
+        limit: params.limit ?? 0,
+        offset: params.offset ?? 0,
+      }
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const results = computed(() =>
+    (lastResult.value?.ids ?? [])
+      .map((id) => items.value.get(id))
+      .filter((c): c is Clinic => c !== undefined),
+  )
+
+  const resultsStatus = computed(() => lastResult.value?.status ?? null)
+
+  return { items, loading, error, create, fetch, update, remove, list, results, resultsStatus }
 })

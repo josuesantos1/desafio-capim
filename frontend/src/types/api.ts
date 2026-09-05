@@ -6,12 +6,26 @@ export interface Banking {
   account: string
 }
 
+export interface Address {
+  street: string
+  city: string
+  state: string
+  zip_code: string
+}
+
 export interface Clinic {
   id: string
   document: string
   legal_name: string
   trade_name: string
   banking: Banking | null
+  description: string
+  address: Address | null
+  phone: string
+  email: string
+  website: string
+  opening_hours: string
+  specialties: string[]
   status: ClinicStatus
   created_at: string
   updated_at: string
@@ -98,4 +112,18 @@ export interface PaymentCreateInput {
   clinic_id: string
   amount: number
   dentist_id?: string
+}
+
+export interface ClinicListParams {
+  limit?: number
+  offset?: number
+  q?: string
+  city?: string
+}
+
+export interface ClinicListResult {
+  items: Clinic[]
+  total: number
+  limit: number
+  offset: number
 }
