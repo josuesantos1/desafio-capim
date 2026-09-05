@@ -58,44 +58,48 @@ async function remove() {
 </script>
 
 <template>
-  <div>
-    <form @submit.prevent="submit" class="form">
-      <ErrorBanner :problem="store.error" />
-      <label class="field">
-        Documento
-        <input :value="clinic.document" disabled class="input" />
-      </label>
-      <label class="field">
-        Razão social
-        <input v-model="form.legal_name" required class="input" />
-      </label>
-      <label class="field">
-        Nome fantasia
-        <input v-model="form.trade_name" required class="input" />
-      </label>
-      <label class="field-inline">
-        <input v-model="withBanking" type="checkbox" />
-        Dados bancários
-      </label>
-      <fieldset v-if="withBanking" class="flex flex-col gap-2 border-0 p-0">
+  <div class="flex flex-col gap-6">
+    <div class="shell max-w-md">
+      <form @submit.prevent="submit" class="card !mb-0 flex flex-col gap-3">
+        <ErrorBanner :problem="store.error" />
         <label class="field">
-          Banco
-          <input v-model="bank" required class="input" />
+          Documento
+          <input :value="clinic.document" disabled class="input" />
         </label>
         <label class="field">
-          Agência
-          <input v-model="agency" required class="input" />
+          Razão social
+          <input v-model="form.legal_name" required class="input" />
         </label>
         <label class="field">
-          Conta
-          <input v-model="account" required class="input" />
+          Nome fantasia
+          <input v-model="form.trade_name" required class="input" />
         </label>
-      </fieldset>
-      <p>Status: {{ clinic.status }}</p>
-      <button type="submit" :disabled="store.loading" class="btn">Salvar</button>
-    </form>
+        <label class="field-inline">
+          <input v-model="withBanking" type="checkbox" />
+          Dados bancários
+        </label>
+        <fieldset v-if="withBanking" class="flex flex-col gap-3 border-0 p-0">
+          <label class="field">
+            Banco
+            <input v-model="bank" required class="input" />
+          </label>
+          <label class="field">
+            Agência
+            <input v-model="agency" required class="input" />
+          </label>
+          <label class="field">
+            Conta
+            <input v-model="account" required class="input" />
+          </label>
+        </fieldset>
+        <p class="text-sm text-neutral-500 dark:text-neutral-400">Status: {{ clinic.status }}</p>
+        <button type="submit" :disabled="store.loading" class="btn btn-primary self-start">
+          Salvar
+        </button>
+      </form>
+    </div>
 
-    <button type="button" :disabled="store.loading" class="btn" @click="remove">
+    <button type="button" :disabled="store.loading" class="btn self-start" @click="remove">
       Excluir clínica
     </button>
   </div>

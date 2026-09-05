@@ -73,25 +73,31 @@ async function remove(dentistId: string) {
   <div>
     <ErrorBanner :problem="store.error" />
 
-    <form @submit.prevent="submit" class="form">
-      <h2>Novo dentista</h2>
-      <label class="field">
-        Nome
-        <input v-model="form.name" required class="input" />
-      </label>
-      <label class="field">
-        Telefone
-        <input v-model="form.phone" required class="input" />
-      </label>
-      <label class="field">
-        E-mail
-        <input v-model="form.email" type="email" required class="input" />
-      </label>
-      <button type="submit" :disabled="store.loading" class="btn">Adicionar dentista</button>
-    </form>
+    <div class="shell max-w-md">
+      <form @submit.prevent="submit" class="card !mb-0 flex flex-col gap-3">
+        <h2 class="mt-0">Novo dentista</h2>
+        <label class="field">
+          Nome
+          <input v-model="form.name" required class="input" />
+        </label>
+        <label class="field">
+          Telefone
+          <input v-model="form.phone" required class="input" />
+        </label>
+        <label class="field">
+          E-mail
+          <input v-model="form.email" type="email" required class="input" />
+        </label>
+        <button type="submit" :disabled="store.loading" class="btn btn-primary self-start">
+          Adicionar dentista
+        </button>
+      </form>
+    </div>
 
     <h2>Dentistas</h2>
-    <p v-if="store.listByClinic(clinicId).length === 0">Nenhum dentista cadastrado.</p>
+    <p v-if="store.listByClinic(clinicId).length === 0" class="text-neutral-500 dark:text-neutral-400">
+      Nenhum dentista cadastrado.
+    </p>
     <ul v-else class="list-plain">
       <li v-for="dentist in store.listByClinic(clinicId)" :key="dentist.id" class="list-item">
         <template v-if="editingId === dentist.id">

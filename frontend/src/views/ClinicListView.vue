@@ -37,53 +37,68 @@ async function submit() {
 </script>
 
 <template>
-  <section>
-    <h1>Clínicas</h1>
+  <section v-reveal>
+    <span class="eyebrow">Área de gestão</span>
+    <h1 class="mt-3">Clínicas</h1>
 
-    <form @submit.prevent="submit" class="form">
-      <h2>Nova clínica</h2>
-      <ErrorBanner :problem="store.error" />
-      <label class="field">
-        Documento (CPF/CNPJ)
-        <input v-model="form.document" required class="input" />
-      </label>
-      <label class="field">
-        Razão social
-        <input v-model="form.legal_name" required class="input" />
-      </label>
-      <label class="field">
-        Nome fantasia
-        <input v-model="form.trade_name" required class="input" />
-      </label>
-      <label class="field-inline">
-        <input v-model="withBanking" type="checkbox" />
-        Informar dados bancários
-      </label>
-      <fieldset v-if="withBanking" class="flex flex-col gap-2 border-0 p-0">
+    <div class="shell max-w-md">
+      <form @submit.prevent="submit" class="card !mb-0 flex flex-col gap-3">
+        <h2 class="mt-0">Nova clínica</h2>
+        <ErrorBanner :problem="store.error" />
         <label class="field">
-          Banco
-          <input v-model="bank" required class="input" />
+          Documento (CPF/CNPJ)
+          <input v-model="form.document" required class="input" />
         </label>
         <label class="field">
-          Agência
-          <input v-model="agency" required class="input" />
+          Razão social
+          <input v-model="form.legal_name" required class="input" />
         </label>
         <label class="field">
-          Conta
-          <input v-model="account" required class="input" />
+          Nome fantasia
+          <input v-model="form.trade_name" required class="input" />
         </label>
-      </fieldset>
-      <button type="submit" :disabled="store.loading" class="btn">Criar clínica</button>
-    </form>
+        <label class="field-inline">
+          <input v-model="withBanking" type="checkbox" />
+          Informar dados bancários
+        </label>
+        <fieldset v-if="withBanking" class="flex flex-col gap-3 border-0 p-0">
+          <label class="field">
+            Banco
+            <input v-model="bank" required class="input" />
+          </label>
+          <label class="field">
+            Agência
+            <input v-model="agency" required class="input" />
+          </label>
+          <label class="field">
+            Conta
+            <input v-model="account" required class="input" />
+          </label>
+        </fieldset>
+        <button type="submit" :disabled="store.loading" class="btn btn-primary self-start">
+          Criar clínica
+        </button>
+      </form>
+    </div>
 
     <h2>Clínicas desta sessão</h2>
-    <p v-if="store.list.length === 0">Nenhuma clínica criada/consultada ainda nesta sessão.</p>
-    <ul v-else class="list-plain">
-      <li v-for="clinic in store.list" :key="clinic.id" class="list-item">
-        <router-link :to="`/clinics/${clinic.id}`" class="hover:underline">
-          {{ clinic.trade_name }} — {{ clinic.status }}
-        </router-link>
-      </li>
-    </ul>
+    <p v-if="store.list.length === 0" class="text-neutral-500 dark:text-neutral-400">
+      Nenhuma clínica criada/consultada ainda nesta sessão.
+    </p>
+    <div v-else class="grid gap-4 sm:grid-cols-2">
+      <router-link
+        v-for="clinic in store.list"
+        :key="clinic.id"
+        :to="`/clinics/${clinic.id}`"
+        class="shell no-underline"
+      >
+        <div class="card card-hover flex items-center justify-between">
+          <span class="font-medium text-neutral-900 dark:text-neutral-100">
+            {{ clinic.trade_name }}
+          </span>
+          <span class="text-sm text-neutral-500 dark:text-neutral-400">{{ clinic.status }}</span>
+        </div>
+      </router-link>
+    </div>
   </section>
 </template>

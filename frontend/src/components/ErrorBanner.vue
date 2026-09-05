@@ -11,7 +11,7 @@ const message = computed(() => (props.problem ? displayMessage(props.problem) : 
 <template>
   <div
     v-if="problem"
-    class="my-2 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-left text-red-800"
+    class="my-2 rounded-2xl border border-red-500/15 bg-red-500/5 px-4 py-3 text-left text-sm text-red-600 dark:text-red-400"
   >
     <p>{{ message }}</p>
     <ul v-if="problem.errors?.length" class="mt-1.5 list-disc pl-5">

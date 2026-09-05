@@ -47,40 +47,44 @@ function refresh(paymentId: string) {
   <div>
     <ErrorBanner :problem="paymentsStore.error" />
 
-    <form v-if="clinic.status === 'active'" @submit.prevent="submit" class="form">
-      <h2>Novo payment</h2>
-      <label class="field">
-        Valor (R$)
-        <input
-          v-model="amountReais"
-          required
-          inputmode="decimal"
-          placeholder="0,00"
-          class="input"
-        />
-      </label>
-      <label class="field">
-        Dentista (opcional)
-        <select v-model="dentistId" class="input">
-          <option value="">— nenhum —</option>
-          <option
-            v-for="dentist in dentistsStore.listByClinic(clinic.id)"
-            :key="dentist.id"
-            :value="dentist.id"
-          >
-            {{ dentist.name }}
-          </option>
-        </select>
-      </label>
-      <button type="submit" :disabled="paymentsStore.loading" class="btn">Criar payment</button>
-    </form>
-    <p v-else>
+    <div v-if="clinic.status === 'active'" class="shell max-w-md">
+      <form @submit.prevent="submit" class="card !mb-0 flex flex-col gap-3">
+        <h2 class="mt-0">Novo payment</h2>
+        <label class="field">
+          Valor (R$)
+          <input
+            v-model="amountReais"
+            required
+            inputmode="decimal"
+            placeholder="0,00"
+            class="input"
+          />
+        </label>
+        <label class="field">
+          Dentista (opcional)
+          <select v-model="dentistId" class="input">
+            <option value="">— nenhum —</option>
+            <option
+              v-for="dentist in dentistsStore.listByClinic(clinic.id)"
+              :key="dentist.id"
+              :value="dentist.id"
+            >
+              {{ dentist.name }}
+            </option>
+          </select>
+        </label>
+        <button type="submit" :disabled="paymentsStore.loading" class="btn btn-primary self-start">
+          Criar payment
+        </button>
+      </form>
+    </div>
+    <p v-else class="max-w-md text-neutral-500 dark:text-neutral-400">
       Esta clínica ainda não está ativa (precisa de ao menos um dentista administrador e um
       representante legal). Payments só podem ser criados com a clínica ativa.
     </p>
 
     <h2>Payments desta sessão</h2>
-    <p v-if="paymentsStore.listByClinic(clinic.id).length === 0">
+    <p v-if="paymentsStore.listByClinic(clinic.id).length === 0" class="text-neutral-500 dark:text-neutral-400">
       Nenhum payment criado/consultado ainda nesta sessão.
     </p>
     <ul v-else class="list-plain">

@@ -27,22 +27,29 @@ watch(() => props.id, load)
 </script>
 
 <template>
-  <section>
-    <router-link to="/clinics" class="hover:underline">&larr; Clínicas</router-link>
+  <section v-reveal>
+    <router-link to="/clinics" class="text-sm text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">
+      ← Clínicas
+    </router-link>
 
-    <h1 v-if="clinic">
-      {{ clinic.trade_name }}
-      <router-link :to="`/c/${clinic.id}`" class="ml-3 text-sm font-normal hover:underline">
-        Ver perfil público
+    <div v-if="clinic" class="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <h1 class="mb-0">{{ clinic.trade_name }}</h1>
+      <router-link
+        :to="`/c/${clinic.id}`"
+        class="text-sm font-medium text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
+      >
+        Ver perfil público →
       </router-link>
-    </h1>
+    </div>
     <ErrorBanner :problem="store.error" />
 
-    <nav v-if="clinic" class="my-4 flex gap-2">
+    <nav v-if="clinic" class="my-6 inline-flex w-max gap-1 rounded-full border border-neutral-900/10 bg-white p-1 dark:border-white/10 dark:bg-neutral-900">
       <button
         :class="[
-          'cursor-pointer border-0 bg-transparent p-0',
-          activeTab === 'dados' ? 'font-bold underline' : '',
+          'rounded-full px-4 py-1.5 text-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]',
+          activeTab === 'dados'
+            ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+            : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100',
         ]"
         @click="activeTab = 'dados'"
       >
@@ -51,8 +58,10 @@ watch(() => props.id, load)
       <button
         :disabled="store.loading"
         :class="[
-          'cursor-pointer border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50',
-          activeTab === 'dentistas' ? 'font-bold underline' : '',
+          'rounded-full px-4 py-1.5 text-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] disabled:cursor-not-allowed disabled:opacity-50',
+          activeTab === 'dentistas'
+            ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+            : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100',
         ]"
         @click="activeTab = 'dentistas'"
       >
@@ -61,8 +70,10 @@ watch(() => props.id, load)
       <button
         :disabled="store.loading"
         :class="[
-          'cursor-pointer border-0 bg-transparent p-0 disabled:cursor-not-allowed disabled:opacity-50',
-          activeTab === 'payments' ? 'font-bold underline' : '',
+          'rounded-full px-4 py-1.5 text-sm transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] disabled:cursor-not-allowed disabled:opacity-50',
+          activeTab === 'payments'
+            ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900'
+            : 'text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100',
         ]"
         @click="activeTab = 'payments'"
       >

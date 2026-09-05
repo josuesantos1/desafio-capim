@@ -61,40 +61,56 @@ watch(term, runSearch, { immediate: true })
 </script>
 
 <template>
-  <section>
-    <h1>Resultados para "{{ term }}"</h1>
+  <section v-reveal>
+    <span class="eyebrow">Resultados</span>
+    <h1 class="mt-3">"{{ term }}"</h1>
 
-    <p v-if="!loading && clinicResults.length === 0 && dentistResults.length === 0">
-      Nenhum resultado encontrado.
-    </p>
+    <div v-if="!loading && clinicResults.length === 0 && dentistResults.length === 0" class="shell max-w-md">
+      <p class="card text-neutral-500 dark:text-neutral-400">Nenhum resultado encontrado.</p>
+    </div>
 
-    <ul v-if="clinicResults.length" class="list-plain mb-6">
-      <li v-for="clinic in clinicResults" :key="clinic.id" class="list-item">
-        <router-link :to="`/c/${clinic.id}`" class="hover:underline">
-          <strong>{{ clinic.trade_name }}</strong>
-          <span v-if="clinic.status === 'pending'" class="badge">Em configuração</span>
-        </router-link>
-        <br />
-        ★ {{ mockClinicProfile(clinic).rating }} — {{ mockClinicProfile(clinic).city }}
-        <br />
-        Especialidades: {{ mockClinicProfile(clinic).specialties.join(' · ') }}
-        <br />
-        {{ dentistsStore.listByClinic(clinic.id).length }} dentista(s)
-      </li>
-    </ul>
+    <div v-if="clinicResults.length" class="mb-10 grid gap-4 sm:grid-cols-2">
+      <router-link
+        v-for="clinic in clinicResults"
+        :key="clinic.id"
+        :to="`/c/${clinic.id}`"
+        class="shell no-underline"
+      >
+        <div class="card card-hover flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <strong class="font-display text-lg">{{ clinic.trade_name }}</strong>
+            <span v-if="clinic.status === 'pending'" class="badge">Em configuração</span>
+          </div>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">
+            ★ {{ mockClinicProfile(clinic).rating }} · {{ mockClinicProfile(clinic).city }}
+          </p>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">
+            {{ mockClinicProfile(clinic).specialties.join(' · ') }}
+          </p>
+          <p class="text-xs tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
+            {{ dentistsStore.listByClinic(clinic.id).length }} dentista(s)
+          </p>
+        </div>
+      </router-link>
+    </div>
 
-    <ul v-if="dentistResults.length" class="list-plain">
-      <li v-for="{ dentist, clinic } in dentistResults" :key="dentist.id" class="list-item">
-        <strong>{{ dentist.name }}</strong> — {{ mockDentistProfile(dentist).specialty }}
-        <br />
-        <router-link :to="`/c/${clinic.id}`" class="hover:underline">{{
-          clinic.trade_name
-        }}</router-link>
-        —
-        <router-link :to="`/d/${clinic.id}/${dentist.id}`" class="hover:underline">
-          Ver perfil
-        </router-link>
-      </li>
-    </ul>
+    <div v-if="dentistResults.length" class="grid gap-4 sm:grid-cols-2">
+      <div v-for="{ dentist, clinic } in dentistResults" :key="dentist.id" class="shell">
+        <div class="card card-hover flex flex-col gap-2">
+          <strong class="font-display text-lg">{{ dentist.name }}</strong>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">
+            {{ mockDentistProfile(dentist).specialty }}
+          </p>
+          <div class="flex items-center gap-3 text-sm">
+            <router-link :to="`/c/${clinic.id}`" class="text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100">
+              {{ clinic.trade_name }}
+            </router-link>
+            <router-link :to="`/d/${clinic.id}/${dentist.id}`" class="font-medium text-neutral-900 hover:underline dark:text-neutral-100">
+              Ver perfil →
+            </router-link>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 </template>

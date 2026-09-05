@@ -16,36 +16,70 @@ function submit() {
 </script>
 
 <template>
-  <section>
-    <h1>Encontre uma clínica odontológica</h1>
+  <section class="grid gap-16 md:grid-cols-2 md:items-start">
+    <div v-reveal class="flex flex-col gap-6">
+      <span class="eyebrow">Marketplace odontológico</span>
+      <h1 class="text-5xl leading-[1.05] sm:text-6xl">
+        Encontre a clínica ideal para o seu sorriso.
+      </h1>
+      <p class="max-w-md text-base text-neutral-500 dark:text-neutral-400">
+        Descubra clínicas, conheça os dentistas e escolha com confiança — tudo em um só lugar.
+      </p>
 
-    <form @submit.prevent="submit" class="form">
-      <label class="field">
-        Buscar clínica, dentista ou especialidade
-        <input v-model="query" class="input" />
-      </label>
-      <label class="field">
-        Localização
-        <input v-model="location" placeholder="Cidade (opcional)" class="input" />
-      </label>
-      <button type="submit" class="btn">Buscar</button>
-    </form>
+      <form @submit.prevent="submit" class="shell mt-2 max-w-md">
+        <div class="card flex flex-col gap-3">
+          <label class="field">
+            Buscar clínica, dentista ou especialidade
+            <input v-model="query" class="input" placeholder="Ex.: Ortodontia, Dra. Ana..." />
+          </label>
+          <label class="field">
+            Localização
+            <input v-model="location" placeholder="Cidade (opcional)" class="input" />
+          </label>
+          <button type="submit" class="btn btn-primary group self-start">
+            Buscar
+            <span class="btn-icon">↗</span>
+          </button>
+        </div>
+      </form>
+    </div>
 
-    <h2>Clínicas em destaque</h2>
-    <p v-if="clinicsStore.list.length === 0">
-      Nenhuma clínica disponível ainda —
-      <router-link to="/clinics" class="hover:underline">crie uma pela área de gestão</router-link
-      >.
-    </p>
-    <ul v-else class="list-plain">
-      <li v-for="clinic in clinicsStore.list" :key="clinic.id" class="list-item">
-        <router-link :to="`/c/${clinic.id}`" class="hover:underline">
-          <strong>{{ clinic.trade_name }}</strong>
-          <span v-if="clinic.status === 'pending'" class="badge">Em configuração</span>
-          <br />
-          ★ {{ mockClinicProfile(clinic).rating }} — {{ mockClinicProfile(clinic).city }}
+    <div v-reveal class="flex flex-col gap-4">
+      <h2 class="mt-0">Clínicas em destaque</h2>
+
+      <p
+        v-if="clinicsStore.list.length === 0"
+        class="shell"
+      >
+        <span class="card block text-neutral-500 dark:text-neutral-400">
+          Nenhuma clínica disponível ainda —
+          <router-link to="/clinics" class="font-medium text-neutral-900 underline underline-offset-2 dark:text-neutral-100">
+            crie uma pela área de gestão
+          </router-link>.
+        </span>
+      </p>
+
+      <div v-else class="grid gap-4 sm:grid-cols-2">
+        <router-link
+          v-for="(clinic, i) in clinicsStore.list"
+          :key="clinic.id"
+          :to="`/c/${clinic.id}`"
+          class="shell no-underline"
+          :class="i === 0 ? 'sm:col-span-2' : ''"
+        >
+          <div class="card card-hover flex flex-col gap-1.5">
+            <div class="flex items-center justify-between">
+              <strong class="font-display text-lg text-neutral-900 dark:text-neutral-50">
+                {{ clinic.trade_name }}
+              </strong>
+              <span v-if="clinic.status === 'pending'" class="badge">Em configuração</span>
+            </div>
+            <p class="text-sm text-neutral-500 dark:text-neutral-400">
+              ★ {{ mockClinicProfile(clinic).rating }} · {{ mockClinicProfile(clinic).city }}
+            </p>
+          </div>
         </router-link>
-      </li>
-    </ul>
+      </div>
+    </div>
   </section>
 </template>
