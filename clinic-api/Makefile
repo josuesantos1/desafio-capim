@@ -1,3 +1,5 @@
+SHELL := C:/Program Files/Git/bin/bash.exe
+
 .PHONY: run
 run:
 	@go run ./cmd
