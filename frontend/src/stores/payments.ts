@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import * as paymentsApi from '../api/payments'
 import { ApiError } from '../api/http'
-import type { Payment, PaymentCreateInput, ProblemDetails } from '../types/api'
+import type { Payment, PaymentCreateInput, PaymentListParams, ProblemDetails } from '../types/api'
 import { useDentistsStore } from './dentists'
 import { mockSettlementDate } from '../mock/finance'
 
@@ -63,6 +63,25 @@ export const usePaymentsStore = defineStore('payments', () => {
     }
   }
 
+  async function list(clinicId: string, params: PaymentListParams = {}) {
+    loading.value = true
+    error.value = null
+    try {
+      const result = await paymentsApi.listPayments(clinicId, params)
+      for (const p of result.items) items.value.set(p.id, p)
+      byClinic.value.set(
+        clinicId,
+        result.items.map((p) => p.id),
+      )
+      return result
+    } catch (err) {
+      if (err instanceof ApiError) error.value = err.problem
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
   function evictByClinicId(clinicId: string) {
     const ids = byClinic.value.get(clinicId) ?? []
     for (const id of ids) items.value.delete(id)
@@ -104,6 +123,7 @@ export const usePaymentsStore = defineStore('payments', () => {
     listByClinic,
     create,
     fetchOne,
+    list,
     evictByClinicId,
     balanceByClinic,
     pendingTotalByClinic,

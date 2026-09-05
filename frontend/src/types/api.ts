@@ -132,6 +132,19 @@ export interface PaymentCreateInput {
   dentist_id?: string
 }
 
+export interface PaymentListParams {
+  limit?: number
+  offset?: number
+  status?: PaymentStatus
+}
+
+export interface PaymentListResult {
+  items: Payment[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export interface ClinicListParams {
   limit?: number
   offset?: number

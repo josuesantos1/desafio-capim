@@ -19,6 +19,9 @@ onMounted(() => {
       // dropdown de dentista fica vazio; não é uma falha crítica desta aba
     })
   }
+  paymentsStore.list(props.clinic.id, { limit: 100 }).catch(() => {
+    // erro já está em paymentsStore.error, exibido pelo ErrorBanner
+  })
 })
 
 function formatCurrency(cents: number): string {
@@ -69,9 +72,6 @@ function refresh(paymentId: string) {
             R$ {{ formatCurrency(paymentsStore.pendingTotalByClinic(clinic.id)) }}
           </p>
         </div>
-        <p class="text-xs text-neutral-400 sm:col-span-2 dark:text-neutral-500">
-          Baseado nos payments consultados nesta sessão.
-        </p>
       </div>
     </div>
 
