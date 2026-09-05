@@ -3,6 +3,7 @@ package problem
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"sort"
 )
@@ -38,11 +39,15 @@ func Write(w http.ResponseWriter, status int, code, detail string, fields map[st
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(d)
+	if err := json.NewEncoder(w).Encode(d); err != nil {
+		slog.Error("failed to encode problem details response", "error", err)
+	}
 }
 
 func WriteJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		slog.Error("failed to encode json response", "error", err)
+	}
 }

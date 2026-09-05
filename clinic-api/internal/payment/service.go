@@ -56,7 +56,7 @@ func NewService(repo Repository, clinicRepo clinicGetter, dentistRepo dentistGet
 }
 
 func randomApprovalDelay() time.Duration {
-	return time.Duration(2+rand.Intn(4)) * time.Second
+	return time.Duration(2+rand.Intn(4)) * time.Second // #nosec G404 -- jitter for a simulated Pix approval delay, not security-sensitive
 }
 
 func (s *Service) Create(ctx context.Context, idempotencyKey string, in CreateInput) (Payment, bool, error) {
