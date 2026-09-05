@@ -39,6 +39,10 @@ func main() {
 	paymentRepo := payment.NewMemoryRepository(clinicRepo, dentistRepo)
 	pixClient := pix.NewClient(pix.Config{APIKey: "simulated"})
 
+	if cfg.SeedData {
+		seedData(context.Background(), clinicRepo, dentistRepo, paymentRepo)
+	}
+
 	router.Route("/api", func(api chi.Router) {
 		clinic.RegisterRoutes(api, clinic.NewService(clinicRepo))
 		dentist.RegisterRoutes(api, dentist.NewService(dentistRepo, clinicRepo))

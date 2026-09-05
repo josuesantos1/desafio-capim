@@ -12,6 +12,20 @@ func TestLoad_Defaults(t *testing.T) {
 
 	assertEqual(t, "HTTPPort", cfg.HTTPPort, "8080")
 	assertEqual(t, "LogLevel", cfg.LogLevel, "info")
+	if cfg.SeedData {
+		t.Errorf("SeedData = true, want false")
+	}
+}
+
+func TestLoad_SeedDataEnabled(t *testing.T) {
+	clearEnv(t)
+	t.Setenv("SEED_DATA", "true")
+
+	cfg := Load()
+
+	if !cfg.SeedData {
+		t.Errorf("SeedData = false, want true")
+	}
 }
 
 func TestLoad_Overrides(t *testing.T) {
@@ -52,7 +66,7 @@ func TestIsValidLogLevel(t *testing.T) {
 
 func clearEnv(t *testing.T) {
 	t.Helper()
-	keys := []string{"HTTP_PORT", "LOG_LEVEL"}
+	keys := []string{"HTTP_PORT", "LOG_LEVEL", "SEED_DATA"}
 	for _, k := range keys {
 		original, hadOriginal := os.LookupEnv(k)
 		os.Unsetenv(k)

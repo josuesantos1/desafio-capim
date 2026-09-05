@@ -8,12 +8,14 @@ import (
 type Config struct {
 	HTTPPort string
 	LogLevel string
+	SeedData bool
 }
 
 func Load() Config {
 	return Config{
 		HTTPPort: getEnv("HTTP_PORT", "8080"),
 		LogLevel: normalizeLogLevel(getEnv("LOG_LEVEL", "info")),
+		SeedData: getEnvBool("SEED_DATA", false),
 	}
 }
 
@@ -22,6 +24,14 @@ func getEnv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func getEnvBool(key string, fallback bool) bool {
+	v, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
+	}
+	return strings.EqualFold(v, "true") || v == "1"
 }
 
 func IsValidLogLevel(level string) bool {
