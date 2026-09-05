@@ -270,3 +270,113 @@ func TestIntegration_DeleteClinic(t *testing.T) {
 		})
 	}
 }
+
+func TestIntegration_ListClinics(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		wantStatus   int
+		wantContains []string
+		wantExcludes []string
+	}{
+		{
+			name:         "no filter returns both clinics",
+			wantStatus:   http.StatusOK,
+			wantContains: []string{"Clínica Sorriso", "Odonto Vida"},
+		},
+		{
+			name:         "search by specialty",
+			query:        "?q=implantodontia",
+			wantStatus:   http.StatusOK,
+			wantContains: []string{"Odonto Vida"},
+			wantExcludes: []string{"Clínica Sorriso"},
+		},
+		{
+			name:         "filter by city",
+			query:        "?city=paulo",
+			wantStatus:   http.StatusOK,
+			wantContains: []string{"Clínica Sorriso"},
+			wantExcludes: []string{"Odonto Vida"},
+		},
+		{
+			name:         "pagination",
+			query:        "?limit=1&offset=1",
+			wantStatus:   http.StatusOK,
+			wantContains: []string{`"total":2`, `"limit":1`, `"offset":1`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, repo := newIntegrationRouter(t)
+			c1 := mustCreateClinic(t, repo, "00000000-0000-0000-0000-000000000001", "12345678900")
+			c1.TradeName = "Clínica Sorriso"
+			c1.Specialties = []string{"Ortodontia"}
+			c1.Address = &clinic.Address{City: "São Paulo"}
+			require.NoError(t, repo.Update(t.Context(), c1))
+
+			c2 := mustCreateClinic(t, repo, "00000000-0000-0000-0000-000000000002", "98765432100")
+			c2.TradeName = "Odonto Vida"
+			c2.Specialties = []string{"Implantodontia"}
+			require.NoError(t, repo.Update(t.Context(), c2))
+
+			req := httptest.NewRequest(http.MethodGet, "/clinics"+tt.query, nil)
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
+
+			require.Equal(t, tt.wantStatus, rec.Code, "body=%s", rec.Body.String())
+			for _, want := range tt.wantContains {
+				require.Contains(t, rec.Body.String(), want)
+			}
+			for _, exclude := range tt.wantExcludes {
+				require.NotContains(t, rec.Body.String(), exclude)
+			}
+		})
+	}
+}
+
+func TestIntegration_ClinicProfileFields(t *testing.T) {
+	const id = "00000000-0000-0000-0000-000000000001"
+
+	t.Run("create without profile fields returns defaults", func(t *testing.T) {
+		r, _ := newIntegrationRouter(t)
+
+		req := httptest.NewRequest(http.MethodPost, "/clinics", bytes.NewBufferString(
+			`{"document":"12345678900","legal_name":"Legal","trade_name":"Trade"}`))
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusCreated, rec.Code, "body=%s", rec.Body.String())
+		require.Contains(t, rec.Body.String(), `"description":""`)
+		require.Contains(t, rec.Body.String(), `"address":null`)
+		require.Contains(t, rec.Body.String(), `"specialties":[]`)
+	})
+
+	t.Run("address omitted on update preserves existing address", func(t *testing.T) {
+		r, repo := newIntegrationRouter(t)
+		mustCreateClinic(t, repo, id, "12345678900")
+
+		req := httptest.NewRequest(http.MethodPut, "/clinics/"+id, bytes.NewBufferString(
+			`{"address":{"city":"São Paulo"}}`))
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, "body=%s", rec.Body.String())
+
+		req2 := httptest.NewRequest(http.MethodPut, "/clinics/"+id, bytes.NewBufferString(`{"legal_name":"New Legal"}`))
+		rec2 := httptest.NewRecorder()
+		r.ServeHTTP(rec2, req2)
+		require.Equal(t, http.StatusOK, rec2.Code, "body=%s", rec2.Body.String())
+		require.Contains(t, rec2.Body.String(), "São Paulo")
+	})
+
+	t.Run("address sent as empty object is stored non-nil with empty fields", func(t *testing.T) {
+		r, repo := newIntegrationRouter(t)
+		mustCreateClinic(t, repo, id, "12345678900")
+
+		req := httptest.NewRequest(http.MethodPut, "/clinics/"+id, bytes.NewBufferString(`{"address":{}}`))
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusOK, rec.Code, "body=%s", rec.Body.String())
+		require.Contains(t, rec.Body.String(), `"address":{"street":"","city":"","state":"","zip_code":""}`)
+	})
+}

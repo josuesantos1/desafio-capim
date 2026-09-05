@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -15,6 +16,7 @@ import (
 func RegisterRoutes(r chi.Router, svc *Service) {
 	h := &handler{svc: svc}
 	r.Post("/clinics", h.create)
+	r.Get("/clinics", h.list)
 	r.Get("/clinics/{id}", h.get)
 	r.Put("/clinics/{id}", h.update)
 	r.Delete("/clinics/{id}", h.delete)
@@ -122,6 +124,40 @@ func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// @Summary      List/search clinics (paginated)
+// @Tags         clinics
+// @Produce      json
+// @Param        limit   query     int     false  "Page size (default 20, max 100)"
+// @Param        offset  query     int     false  "Offset (default 0)"
+// @Param        q       query     string  false  "Free-text search (trade name, legal name, specialties)"
+// @Param        city    query     string  false  "Filter by city (substring, case-insensitive)"
+// @Success      200     {object}  listResponse
+// @Router       /clinics [get]
+func (h *handler) list(w http.ResponseWriter, r *http.Request) {
+	params := ListParams{
+		Limit:  clampLimit(parseQueryInt(r, "limit")),
+		Offset: clampOffset(parseQueryInt(r, "offset")),
+		Query:  r.URL.Query().Get("q"),
+		City:   r.URL.Query().Get("city"),
+	}
+
+	result, err := h.svc.List(r.Context(), params)
+	if err != nil {
+		writeDomainError(w, err)
+		return
+	}
+
+	problem.WriteJSON(w, http.StatusOK, toListResponse(result, params))
+}
+
+func parseQueryInt(r *http.Request, key string) int {
+	v, err := strconv.Atoi(r.URL.Query().Get(key))
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
 func parseID(w http.ResponseWriter, r *http.Request) (string, bool) {

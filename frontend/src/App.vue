@@ -11,7 +11,7 @@
         to="/"
         class="font-display text-sm font-semibold text-neutral-900 no-underline dark:text-neutral-50"
       >
-        clinic·api
+        Capim Hub
       </router-link>
       <router-link
         to="/search"

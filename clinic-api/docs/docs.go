@@ -16,6 +16,49 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/clinics": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "clinics"
+                ],
+                "summary": "List/search clinics (paginated)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 20, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset (default 0)",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Free-text search (trade name, legal name, specialties)",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by city (substring, case-insensitive)",
+                        "name": "city",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/clinic.listResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "consumes": [
                     "application/json"
@@ -622,6 +665,23 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "clinic.Address": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "street": {
+                    "type": "string"
+                },
+                "zip_code": {
+                    "type": "string"
+                }
+            }
+        },
         "clinic.Banking": {
             "type": "object",
             "properties": {
@@ -650,16 +710,40 @@ const docTemplate = `{
         "clinic.CreateInput": {
             "type": "object",
             "properties": {
+                "address": {
+                    "$ref": "#/definitions/clinic.Address"
+                },
                 "banking": {
                     "$ref": "#/definitions/clinic.Banking"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "document": {
+                    "type": "string"
+                },
+                "email": {
                     "type": "string"
                 },
                 "legal_name": {
                     "type": "string"
                 },
+                "opening_hours": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "specialties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "trade_name": {
+                    "type": "string"
+                },
+                "website": {
                     "type": "string"
                 }
             }
@@ -667,16 +751,57 @@ const docTemplate = `{
         "clinic.UpdateInput": {
             "type": "object",
             "properties": {
+                "address": {
+                    "$ref": "#/definitions/clinic.Address"
+                },
                 "banking": {
                     "$ref": "#/definitions/clinic.Banking"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "document": {
+                    "type": "string"
+                },
+                "email": {
                     "type": "string"
                 },
                 "legal_name": {
                     "type": "string"
                 },
+                "opening_hours": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "specialties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "trade_name": {
+                    "type": "string"
+                },
+                "website": {
+                    "type": "string"
+                }
+            }
+        },
+        "clinic.addressDTO": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "street": {
+                    "type": "string"
+                },
+                "zip_code": {
                     "type": "string"
                 }
             }
@@ -698,13 +823,22 @@ const docTemplate = `{
         "clinic.clinicResponse": {
             "type": "object",
             "properties": {
+                "address": {
+                    "$ref": "#/definitions/clinic.addressDTO"
+                },
                 "banking": {
                     "$ref": "#/definitions/clinic.bankingResponse"
                 },
                 "created_at": {
                     "type": "string"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "document": {
+                    "type": "string"
+                },
+                "email": {
                     "type": "string"
                 },
                 "id": {
@@ -712,6 +846,18 @@ const docTemplate = `{
                 },
                 "legal_name": {
                     "type": "string"
+                },
+                "opening_hours": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "specialties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "status": {
                     "$ref": "#/definitions/clinic.ClinicStatus"
@@ -721,6 +867,29 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "website": {
+                    "type": "string"
+                }
+            }
+        },
+        "clinic.listResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/clinic.clinicResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },

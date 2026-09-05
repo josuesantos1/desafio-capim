@@ -265,3 +265,39 @@ func TestService_DocumentReusableAfterSoftDelete(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, first.ID, second.ID)
 }
+
+func TestService_List(t *testing.T) {
+	tests := []struct {
+		name       string
+		in         clinic.ListParams
+		wantParams clinic.ListParams
+	}{
+		{
+			name:       "zero limit defaults to 20, negative offset floors to 0",
+			in:         clinic.ListParams{Limit: 0, Offset: -5},
+			wantParams: clinic.ListParams{Limit: 20, Offset: 0},
+		},
+		{
+			name:       "limit above max clamps to 100",
+			in:         clinic.ListParams{Limit: 500, Offset: 3},
+			wantParams: clinic.ListParams{Limit: 100, Offset: 3},
+		},
+		{
+			name:       "valid limit/offset pass through unchanged",
+			in:         clinic.ListParams{Limit: 10, Offset: 20, Query: "q", City: "city"},
+			wantParams: clinic.ListParams{Limit: 10, Offset: 20, Query: "q", City: "city"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := mocks.NewRepository(t)
+			svc := clinic.NewService(repo)
+
+			repo.EXPECT().List(mock.Anything, tt.wantParams).Return(clinic.ListResult{}, nil).Once()
+
+			_, err := svc.List(context.Background(), tt.in)
+			require.NoError(t, err)
+		})
+	}
+}

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,6 +23,7 @@ type Repository interface {
 	GetByDocument(ctx context.Context, document string) (Clinic, error)
 	Update(ctx context.Context, c Clinic) error
 	SoftDelete(ctx context.Context, id string, deletedAt time.Time) error
+	List(ctx context.Context, params ListParams) (ListResult, error)
 }
 
 type memoryRepository struct {
@@ -83,6 +86,43 @@ func (r *memoryRepository) SoftDelete(ctx context.Context, id string, deletedAt 
 	current.DeletedAt = &deletedAt
 	current.UpdatedAt = deletedAt
 	return r.store.Update(id, current)
+}
+
+func (r *memoryRepository) List(ctx context.Context, params ListParams) (ListResult, error) {
+	q := strings.ToLower(params.Query)
+	city := strings.ToLower(params.City)
+
+	var items []Clinic
+	for _, c := range r.store.All() {
+		if c.DeletedAt != nil {
+			continue
+		}
+		if q != "" && !matchesQuery(c, q) {
+			continue
+		}
+		if city != "" && (c.Address == nil || !strings.Contains(strings.ToLower(c.Address.City), city)) {
+			continue
+		}
+		items = append(items, c)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.Before(items[j].CreatedAt) })
+
+	total := len(items)
+	start := min(params.Offset, total)
+	end := min(start+params.Limit, total)
+	return ListResult{Items: items[start:end], Total: total}, nil
+}
+
+func matchesQuery(c Clinic, q string) bool {
+	if strings.Contains(strings.ToLower(c.TradeName), q) || strings.Contains(strings.ToLower(c.LegalName), q) {
+		return true
+	}
+	for _, s := range c.Specialties {
+		if strings.Contains(strings.ToLower(s), q) {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *memoryRepository) Activate(ctx context.Context, id string) error {

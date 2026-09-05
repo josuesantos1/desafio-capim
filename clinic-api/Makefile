@@ -31,3 +31,8 @@ swagger:
 .PHONY: docker
 docker:
 	@docker build -t clinic-api .
+
+.PHONY: vuln
+vuln:
+	gosec ./...
+	govulncheck ./...

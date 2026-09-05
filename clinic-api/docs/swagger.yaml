@@ -1,5 +1,16 @@
 basePath: /api
 definitions:
+  clinic.Address:
+    properties:
+      city:
+        type: string
+      state:
+        type: string
+      street:
+        type: string
+      zip_code:
+        type: string
+    type: object
   clinic.Banking:
     properties:
       account:
@@ -19,24 +30,67 @@ definitions:
     - StatusActive
   clinic.CreateInput:
     properties:
+      address:
+        $ref: '#/definitions/clinic.Address'
       banking:
         $ref: '#/definitions/clinic.Banking'
+      description:
+        type: string
       document:
+        type: string
+      email:
         type: string
       legal_name:
         type: string
+      opening_hours:
+        type: string
+      phone:
+        type: string
+      specialties:
+        items:
+          type: string
+        type: array
       trade_name:
+        type: string
+      website:
         type: string
     type: object
   clinic.UpdateInput:
     properties:
+      address:
+        $ref: '#/definitions/clinic.Address'
       banking:
         $ref: '#/definitions/clinic.Banking'
+      description:
+        type: string
       document:
+        type: string
+      email:
         type: string
       legal_name:
         type: string
+      opening_hours:
+        type: string
+      phone:
+        type: string
+      specialties:
+        items:
+          type: string
+        type: array
       trade_name:
+        type: string
+      website:
+        type: string
+    type: object
+  clinic.addressDTO:
+    properties:
+      city:
+        type: string
+      state:
+        type: string
+      street:
+        type: string
+      zip_code:
         type: string
     type: object
   clinic.bankingResponse:
@@ -50,22 +104,51 @@ definitions:
     type: object
   clinic.clinicResponse:
     properties:
+      address:
+        $ref: '#/definitions/clinic.addressDTO'
       banking:
         $ref: '#/definitions/clinic.bankingResponse'
       created_at:
         type: string
+      description:
+        type: string
       document:
+        type: string
+      email:
         type: string
       id:
         type: string
       legal_name:
         type: string
+      opening_hours:
+        type: string
+      phone:
+        type: string
+      specialties:
+        items:
+          type: string
+        type: array
       status:
         $ref: '#/definitions/clinic.ClinicStatus'
       trade_name:
         type: string
       updated_at:
         type: string
+      website:
+        type: string
+    type: object
+  clinic.listResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/clinic.clinicResponse'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
     type: object
   dentist.CreateInput:
     properties:
@@ -187,6 +270,34 @@ info:
   version: "1.0"
 paths:
   /clinics:
+    get:
+      parameters:
+      - description: Page size (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset (default 0)
+        in: query
+        name: offset
+        type: integer
+      - description: Free-text search (trade name, legal name, specialties)
+        in: query
+        name: q
+        type: string
+      - description: Filter by city (substring, case-insensitive)
+        in: query
+        name: city
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/clinic.listResponse'
+      summary: List/search clinics (paginated)
+      tags:
+      - clinics
     post:
       consumes:
       - application/json
