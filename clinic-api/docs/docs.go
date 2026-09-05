@@ -896,6 +896,9 @@ const docTemplate = `{
         "dentist.CreateInput": {
             "type": "object",
             "properties": {
+                "bio": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -904,6 +907,15 @@ const docTemplate = `{
                 },
                 "phone": {
                     "type": "string"
+                },
+                "specialties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "years_of_experience": {
+                    "type": "integer"
                 }
             }
         },
@@ -921,6 +933,9 @@ const docTemplate = `{
         "dentist.UpdateInput": {
             "type": "object",
             "properties": {
+                "bio": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -929,12 +944,24 @@ const docTemplate = `{
                 },
                 "phone": {
                     "type": "string"
+                },
+                "specialties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "years_of_experience": {
+                    "type": "integer"
                 }
             }
         },
         "dentist.dentistResponse": {
             "type": "object",
             "properties": {
+                "bio": {
+                    "type": "string"
+                },
                 "clinic_id": {
                     "type": "string"
                 },
@@ -959,8 +986,17 @@ const docTemplate = `{
                 "phone": {
                     "type": "string"
                 },
+                "specialties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "updated_at": {
                     "type": "string"
+                },
+                "years_of_experience": {
+                    "type": "integer"
                 }
             }
         },

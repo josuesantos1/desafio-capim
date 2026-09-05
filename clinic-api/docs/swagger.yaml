@@ -152,12 +152,20 @@ definitions:
     type: object
   dentist.CreateInput:
     properties:
+      bio:
+        type: string
       email:
         type: string
       name:
         type: string
       phone:
         type: string
+      specialties:
+        items:
+          type: string
+        type: array
+      years_of_experience:
+        type: integer
     type: object
   dentist.RolesInput:
     properties:
@@ -168,15 +176,25 @@ definitions:
     type: object
   dentist.UpdateInput:
     properties:
+      bio:
+        type: string
       email:
         type: string
       name:
         type: string
       phone:
         type: string
+      specialties:
+        items:
+          type: string
+        type: array
+      years_of_experience:
+        type: integer
     type: object
   dentist.dentistResponse:
     properties:
+      bio:
+        type: string
       clinic_id:
         type: string
       created_at:
@@ -193,8 +211,14 @@ definitions:
         type: string
       phone:
         type: string
+      specialties:
+        items:
+          type: string
+        type: array
       updated_at:
         type: string
+      years_of_experience:
+        type: integer
     type: object
   dentist.listResponse:
     properties:

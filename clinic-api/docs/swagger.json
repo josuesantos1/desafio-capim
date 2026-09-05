@@ -889,6 +889,9 @@
         "dentist.CreateInput": {
             "type": "object",
             "properties": {
+                "bio": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -897,6 +900,15 @@
                 },
                 "phone": {
                     "type": "string"
+                },
+                "specialties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "years_of_experience": {
+                    "type": "integer"
                 }
             }
         },
@@ -914,6 +926,9 @@
         "dentist.UpdateInput": {
             "type": "object",
             "properties": {
+                "bio": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -922,12 +937,24 @@
                 },
                 "phone": {
                     "type": "string"
+                },
+                "specialties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "years_of_experience": {
+                    "type": "integer"
                 }
             }
         },
         "dentist.dentistResponse": {
             "type": "object",
             "properties": {
+                "bio": {
+                    "type": "string"
+                },
                 "clinic_id": {
                     "type": "string"
                 },
@@ -952,8 +979,17 @@
                 "phone": {
                     "type": "string"
                 },
+                "specialties": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "updated_at": {
                     "type": "string"
+                },
+                "years_of_experience": {
+                    "type": "integer"
                 }
             }
         },
