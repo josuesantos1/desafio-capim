@@ -82,6 +82,14 @@ export interface ClinicUpdateInput {
   legal_name?: string
   trade_name?: string
   banking?: Banking
+  document?: string
+  description?: string
+  address?: Address
+  phone?: string
+  email?: string
+  website?: string
+  opening_hours?: string
+  specialties?: string[]
 }
 
 export interface DentistCreateInput {

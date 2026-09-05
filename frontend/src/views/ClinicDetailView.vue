@@ -53,7 +53,7 @@ watch(() => props.id, load)
         ]"
         @click="activeTab = 'dados'"
       >
-        Dados
+        Minha Clínica
       </button>
       <button
         :disabled="store.loading"
@@ -77,7 +77,7 @@ watch(() => props.id, load)
         ]"
         @click="activeTab = 'payments'"
       >
-        Payments
+        Financeiro
       </button>
     </nav>
 

@@ -21,6 +21,14 @@ onMounted(() => {
   }
 })
 
+function formatCurrency(cents: number): string {
+  return (cents / 100).toFixed(2)
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR')
+}
+
 async function submit() {
   const amount = Math.round(Number(amountReais.value.replace(',', '.')) * 100)
   try {
@@ -46,6 +54,26 @@ function refresh(paymentId: string) {
 <template>
   <div>
     <ErrorBanner :problem="paymentsStore.error" />
+
+    <div class="shell mb-6">
+      <div class="card grid gap-4 sm:grid-cols-2">
+        <div>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">Saldo disponível</p>
+          <p class="font-display text-2xl">
+            R$ {{ formatCurrency(paymentsStore.balanceByClinic(clinic.id)) }}
+          </p>
+        </div>
+        <div>
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">A receber</p>
+          <p class="font-display text-2xl">
+            R$ {{ formatCurrency(paymentsStore.pendingTotalByClinic(clinic.id)) }}
+          </p>
+        </div>
+        <p class="text-xs text-neutral-400 sm:col-span-2 dark:text-neutral-500">
+          Baseado nos payments consultados nesta sessão.
+        </p>
+      </div>
+    </div>
 
     <div v-if="clinic.status === 'active'" class="shell max-w-md">
       <form @submit.prevent="submit" class="card !mb-0 flex flex-col gap-3">
@@ -83,8 +111,45 @@ function refresh(paymentId: string) {
       representante legal). Payments só podem ser criados com a clínica ativa.
     </p>
 
-    <h2>Payments desta sessão</h2>
-    <p v-if="paymentsStore.listByClinic(clinic.id).length === 0" class="text-neutral-500 dark:text-neutral-400">
+    <h2>Próximos recebimentos</h2>
+    <p
+      v-if="paymentsStore.upcomingReceivablesByClinic(clinic.id).length === 0"
+      class="text-neutral-500 dark:text-neutral-400"
+    >
+      Nenhum recebível no momento.
+    </p>
+    <ul v-else class="list-plain">
+      <li
+        v-for="{ payment, settlementDate } in paymentsStore.upcomingReceivablesByClinic(clinic.id)"
+        :key="payment.id"
+        class="list-item"
+      >
+        R$ {{ formatCurrency(payment.amount) }} — {{ formatDate(settlementDate) }} (estimado)
+      </li>
+    </ul>
+
+    <h2>Recebíveis</h2>
+    <p
+      v-if="paymentsStore.receivablesByClinic(clinic.id).length === 0"
+      class="text-neutral-500 dark:text-neutral-400"
+    >
+      Nenhum recebível no momento.
+    </p>
+    <ul v-else class="list-plain">
+      <li
+        v-for="{ payment, settlementDate } in paymentsStore.receivablesByClinic(clinic.id)"
+        :key="payment.id"
+        class="list-item"
+      >
+        R$ {{ formatCurrency(payment.amount) }} — {{ formatDate(settlementDate) }} (estimado) — Pendente
+      </li>
+    </ul>
+
+    <h2>Histórico de payments</h2>
+    <p
+      v-if="paymentsStore.listByClinic(clinic.id).length === 0"
+      class="text-neutral-500 dark:text-neutral-400"
+    >
       Nenhum payment criado/consultado ainda nesta sessão.
     </p>
     <ul v-else class="list-plain">
@@ -93,7 +158,7 @@ function refresh(paymentId: string) {
         :key="payment.id"
         class="list-item flex items-center gap-3"
       >
-        <span>R$ {{ (payment.amount / 100).toFixed(2) }} — {{ payment.status }}</span>
+        <span>R$ {{ formatCurrency(payment.amount) }} — {{ payment.status }}</span>
         <button
           type="button"
           :disabled="paymentsStore.loading"

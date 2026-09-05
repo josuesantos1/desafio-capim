@@ -15,7 +15,7 @@ const BIOS = [
   'Atua com atenção aos detalhes e atualização constante nas técnicas mais modernas da área.',
 ]
 
-function hash(seed: string): number {
+export function hash(seed: string): number {
   let h = 0
   for (let i = 0; i < seed.length; i++) h += seed.charCodeAt(i)
   return h

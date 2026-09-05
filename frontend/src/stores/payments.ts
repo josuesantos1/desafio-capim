@@ -4,6 +4,7 @@ import * as paymentsApi from '../api/payments'
 import { ApiError } from '../api/http'
 import type { Payment, PaymentCreateInput, ProblemDetails } from '../types/api'
 import { useDentistsStore } from './dentists'
+import { mockSettlementDate } from '../mock/finance'
 
 export const usePaymentsStore = defineStore('payments', () => {
   const items = ref(new Map<string, Payment>())
@@ -68,5 +69,45 @@ export const usePaymentsStore = defineStore('payments', () => {
     byClinic.value.delete(clinicId)
   }
 
-  return { items, byClinic, loading, error, listByClinic, create, fetchOne, evictByClinicId }
+  function balanceByClinic(clinicId: string): number {
+    return listByClinic(clinicId)
+      .filter((p) => p.status === 'approved')
+      .reduce((sum, p) => sum + p.amount, 0)
+  }
+
+  function pendingTotalByClinic(clinicId: string): number {
+    return listByClinic(clinicId)
+      .filter((p) => p.status === 'pending')
+      .reduce((sum, p) => sum + p.amount, 0)
+  }
+
+  function receivablesByClinic(clinicId: string): { payment: Payment; settlementDate: string }[] {
+    return listByClinic(clinicId)
+      .filter((p) => p.status === 'pending')
+      .map((p) => ({ payment: p, settlementDate: mockSettlementDate(p) }))
+      .sort(
+        (a, b) =>
+          a.settlementDate.localeCompare(b.settlementDate) ||
+          a.payment.id.localeCompare(b.payment.id),
+      )
+  }
+
+  function upcomingReceivablesByClinic(clinicId: string, limit = 3) {
+    return receivablesByClinic(clinicId).slice(0, limit)
+  }
+
+  return {
+    items,
+    byClinic,
+    loading,
+    error,
+    listByClinic,
+    create,
+    fetchOne,
+    evictByClinicId,
+    balanceByClinic,
+    pendingTotalByClinic,
+    receivablesByClinic,
+    upcomingReceivablesByClinic,
+  }
 })
