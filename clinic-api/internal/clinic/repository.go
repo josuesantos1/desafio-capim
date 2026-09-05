@@ -105,7 +105,7 @@ func (r *memoryRepository) List(ctx context.Context, params ListParams) (ListRes
 		}
 		items = append(items, c)
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.Before(items[j].CreatedAt) })
+	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 
 	total := len(items)
 	start := min(params.Offset, total)

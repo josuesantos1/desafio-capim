@@ -219,14 +219,14 @@ func TestMemoryRepository_List(t *testing.T) {
 		require.NoError(t, repo.SoftDelete(ctx, "id-4", base.Add(4*time.Hour)))
 	}
 
-	t.Run("no filter returns all non-deleted ordered by CreatedAt", func(t *testing.T) {
+	t.Run("no filter returns all non-deleted ordered by CreatedAt descending (newest first)", func(t *testing.T) {
 		repo := NewMemoryRepository()
 		seed(repo)
 
 		result, err := repo.List(ctx, ListParams{Limit: 20})
 		require.NoError(t, err)
 		require.Equal(t, 3, result.Total)
-		require.Equal(t, []string{"id-1", "id-2", "id-3"}, idsOf(result.Items))
+		require.Equal(t, []string{"id-3", "id-2", "id-1"}, idsOf(result.Items))
 	})
 
 	t.Run("pagination slices by limit/offset but keeps total", func(t *testing.T) {
