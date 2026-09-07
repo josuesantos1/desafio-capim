@@ -69,10 +69,14 @@ func clearEnv(t *testing.T) {
 	keys := []string{"HTTP_PORT", "LOG_LEVEL", "SEED_DATA"}
 	for _, k := range keys {
 		original, hadOriginal := os.LookupEnv(k)
-		os.Unsetenv(k)
+		if err := os.Unsetenv(k); err != nil {
+			t.Fatalf("failed to unset %s: %v", k, err)
+		}
 		t.Cleanup(func() {
 			if hadOriginal {
-				os.Setenv(k, original)
+				if err := os.Setenv(k, original); err != nil {
+					t.Fatalf("failed to restore %s: %v", k, err)
+				}
 			}
 		})
 	}

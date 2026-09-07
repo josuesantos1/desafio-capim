@@ -211,6 +211,8 @@ Inicie o ambiente de desenvolvimento:
 npm run dev
 ```
 
+O frontend fica disponível em `http://localhost:5173` e faz proxy das chamadas `/api/*` para `http://localhost:8080` (configurado em `vite.config.ts`) — **o backend precisa estar rodando** para a interface carregar dados reais.
+
 
 ## Como rodar os testes
 
@@ -257,6 +259,8 @@ http://localhost:8080/swagger/index.html
 ```
 
 A documentação permite visualizar os endpoints disponíveis, seus parâmetros, payloads e respostas.
+
+Todos os endpoints de negócio (clínicas, dentistas, pagamentos) ficam sob o prefixo `/api` — por exemplo, `GET http://localhost:8080/api/clinics`. O único endpoint fora desse prefixo é o health check, em `/health`.
 
 
 ## Justificativa Técnica
