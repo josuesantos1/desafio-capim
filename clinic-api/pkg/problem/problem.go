@@ -8,18 +8,23 @@ import (
 	"sort"
 )
 
+// Details is the RFC 9457 (application/problem+json) error body returned by
+// every failed request in this API. Code is stable and safe to switch on
+// programmatically; Detail is human-readable and may change.
 type Details struct {
-	Type   string       `json:"type"`
-	Title  string       `json:"title"`
-	Status int          `json:"status"`
-	Detail string       `json:"detail,omitempty"`
-	Code   string       `json:"code,omitempty"`
+	Type   string       `json:"type" example:"about:blank"`
+	Title  string       `json:"title" example:"Bad Request"`
+	Status int          `json:"status" example:"400"`
+	Detail string       `json:"detail,omitempty" example:"request validation failed"`
+	Code   string       `json:"code,omitempty" example:"VALIDATION_ERROR"`
 	Errors []FieldError `json:"errors,omitempty"`
 }
 
+// FieldError describes one invalid field, present when Details.Code is
+// "VALIDATION_ERROR".
 type FieldError struct {
-	Field  string `json:"field"`
-	Detail string `json:"detail"`
+	Field  string `json:"field" example:"clinic_id"`
+	Detail string `json:"detail" example:"is required"`
 }
 
 func Write(w http.ResponseWriter, status int, code, detail string, fields map[string]string) {

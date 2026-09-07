@@ -26,14 +26,17 @@ const docTemplate = `{
                 "summary": "List/search clinics (paginated)",
                 "parameters": [
                     {
+                        "maximum": 100,
                         "type": "integer",
-                        "description": "Page size (default 20, max 100)",
+                        "default": 20,
+                        "description": "Page size",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Offset (default 0)",
+                        "default": 0,
+                        "description": "Offset for pagination",
                         "name": "offset",
                         "in": "query"
                     },
@@ -60,6 +63,7 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "description": "Creates a clinic with status \"pending\". It becomes \"active\" automatically once it has at least one dentist marked as administrator and one marked as legal representative.",
                 "consumes": [
                     "application/json"
                 ],
@@ -89,13 +93,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "validation error",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "document already belongs to another clinic",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -115,20 +119,24 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "clinic_id",
                         "in": "path",
                         "required": true
                     },
                     {
+                        "maximum": 100,
                         "type": "integer",
-                        "description": "Page size (default 20, max 100)",
+                        "default": 20,
+                        "description": "Page size",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Offset (default 0)",
+                        "default": 0,
+                        "description": "Offset for pagination",
                         "name": "offset",
                         "in": "query"
                     },
@@ -153,13 +161,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "clinic_id is not a valid UUID",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -167,6 +175,7 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "description": "Creates a dentist attached to the given clinic. Set is_administrator/is_legal_representative afterwards via the roles endpoint if needed.",
                 "consumes": [
                     "application/json"
                 ],
@@ -180,6 +189,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "clinic_id",
                         "in": "path",
@@ -203,19 +213,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "validation error",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "email already belongs to another dentist in this clinic",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -235,6 +245,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "clinic_id",
                         "in": "path",
@@ -242,6 +253,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Dentist ID",
                         "name": "id",
                         "in": "path",
@@ -256,13 +268,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "id is not a valid UUID",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic or dentist not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -270,6 +282,7 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "description": "Only non-null fields in the body are applied. Does not change is_administrator/is_legal_representative — use PATCH .../roles for that.",
                 "consumes": [
                     "application/json"
                 ],
@@ -283,6 +296,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "clinic_id",
                         "in": "path",
@@ -290,6 +304,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Dentist ID",
                         "name": "id",
                         "in": "path",
@@ -313,19 +328,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "validation error",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic or dentist not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "email already belongs to another dentist in this clinic",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -333,6 +348,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "description": "Rejected with 409 if the dentist is the clinic's last administrator or last legal representative.",
                 "tags": [
                     "dentists"
                 ],
@@ -340,6 +356,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "clinic_id",
                         "in": "path",
@@ -347,6 +364,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Dentist ID",
                         "name": "id",
                         "in": "path",
@@ -355,16 +373,22 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "No Content"
+                        "description": "dentist deleted"
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "id is not a valid UUID",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic or dentist not found",
+                        "schema": {
+                            "$ref": "#/definitions/problem.Details"
+                        }
+                    },
+                    "409": {
+                        "description": "would leave the clinic without an administrator or legal representative",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -374,6 +398,7 @@ const docTemplate = `{
         },
         "/clinics/{clinic_id}/dentists/{id}/roles": {
             "patch": {
+                "description": "An active clinic must always keep at least one administrator and one legal representative; demoting the last one of either role returns 409.",
                 "consumes": [
                     "application/json"
                 ],
@@ -387,6 +412,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "clinic_id",
                         "in": "path",
@@ -394,6 +420,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Dentist ID",
                         "name": "id",
                         "in": "path",
@@ -417,19 +444,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "validation error",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic or dentist not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "would leave the clinic without an administrator or legal representative",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -449,6 +476,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "id",
                         "in": "path",
@@ -463,13 +491,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "id is not a valid UUID",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -477,6 +505,7 @@ const docTemplate = `{
                 }
             },
             "put": {
+                "description": "Only non-null fields in the body are applied. \"document\" cannot be changed after creation and returns 400 DOCUMENT_IMMUTABLE if attempted.",
                 "consumes": [
                     "application/json"
                 ],
@@ -490,6 +519,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "id",
                         "in": "path",
@@ -513,13 +543,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "validation error or attempt to change document",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -527,6 +557,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "description": "Marks the clinic as deleted (DeletedAt is set); it stops appearing in list/get and its document becomes reusable for a new clinic. Existing dentists and payments are not affected.",
                 "tags": [
                     "clinics"
                 ],
@@ -534,6 +565,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "id",
                         "in": "path",
@@ -542,16 +574,16 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "204": {
-                        "description": "No Content"
+                        "description": "clinic deleted"
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "id is not a valid UUID",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -571,26 +603,34 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Clinic ID",
                         "name": "clinic_id",
                         "in": "query",
                         "required": true
                     },
                     {
+                        "enum": [
+                            "pending",
+                            "approved"
+                        ],
                         "type": "string",
-                        "description": "Filter by status (pending|approved)",
+                        "description": "Filter by status",
                         "name": "status",
                         "in": "query"
                     },
                     {
+                        "maximum": 100,
                         "type": "integer",
-                        "description": "Page size (default 20, max 100)",
+                        "default": 20,
+                        "description": "Page size",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Offset (default 0)",
+                        "default": 0,
+                        "description": "Offset for pagination",
                         "name": "offset",
                         "in": "query"
                     }
@@ -603,13 +643,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "clinic_id missing or not a valid UUID",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -617,6 +657,7 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "description": "Creates a \"pending\" payment with a simulated Pix copy-and-paste code. A background job approves it automatically after a random 2-5s delay. Replaying the same Idempotency-Key with the same body returns the original payment (200); replaying it with a different body returns 409.",
                 "consumes": [
                     "application/json"
                 ],
@@ -630,7 +671,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Idempotency key",
+                        "description": "Client-generated unique key; safe to retry a request with the same key",
                         "name": "Idempotency-Key",
                         "in": "header",
                         "required": true
@@ -647,31 +688,31 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "replay of an existing payment",
+                        "description": "replay of an existing payment (same Idempotency-Key and body)",
                         "schema": {
                             "$ref": "#/definitions/payment.paymentResponse"
                         }
                     },
                     "201": {
-                        "description": "Created",
+                        "description": "payment created",
                         "schema": {
                             "$ref": "#/definitions/payment.paymentResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "missing Idempotency-Key header or validation error",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "clinic or dentist not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "409": {
-                        "description": "Conflict",
+                        "description": "clinic not active, or Idempotency-Key reused with a different body",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -681,6 +722,7 @@ const docTemplate = `{
         },
         "/payments/{id}": {
             "get": {
+                "description": "Poll this endpoint to observe the status transition from \"pending\" to \"approved\".",
                 "produces": [
                     "application/json"
                 ],
@@ -691,6 +733,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "format": "uuid",
                         "description": "Payment ID",
                         "name": "id",
                         "in": "path",
@@ -705,13 +748,13 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "id is not a valid UUID",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "payment not found",
                         "schema": {
                             "$ref": "#/definitions/problem.Details"
                         }
@@ -725,16 +768,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "city": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "São Paulo"
                 },
                 "state": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SP"
                 },
                 "street": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Av. Paulista, 1000"
                 },
                 "zip_code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "01310-100"
                 }
             }
         },
@@ -745,10 +792,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "agency": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "1234"
                 },
                 "bank": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Banco do Brasil"
                 }
             }
         },
@@ -773,34 +822,47 @@ const docTemplate = `{
                     "$ref": "#/definitions/clinic.Banking"
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Clínica odontológica completa"
                 },
                 "document": {
-                    "type": "string"
+                    "description": "Document is the CPF/CNPJ. Immutable after creation.",
+                    "type": "string",
+                    "example": "12345678000199"
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "contato@clinicasorriso.com.br"
                 },
                 "legal_name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Clínica Sorriso LTDA"
                 },
                 "opening_hours": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Seg a Sex, 8h às 18h"
                 },
                 "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "(11) 4000-1000"
                 },
                 "specialties": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "Ortodontia",
+                        "Implantodontia"
+                    ]
                 },
                 "trade_name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Clínica Sorriso"
                 },
                 "website": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "www.clinicasorriso.com.br"
                 }
             }
         },
@@ -814,22 +876,28 @@ const docTemplate = `{
                     "$ref": "#/definitions/clinic.Banking"
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Clínica odontológica completa"
                 },
                 "document": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "12345678000199"
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "contato@clinicasorriso.com.br"
                 },
                 "legal_name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Clínica Sorriso LTDA"
                 },
                 "opening_hours": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Seg a Sex, 8h às 18h"
                 },
                 "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "(11) 4000-1000"
                 },
                 "specialties": {
                     "type": "array",
@@ -838,10 +906,12 @@ const docTemplate = `{
                     }
                 },
                 "trade_name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Clínica Sorriso"
                 },
                 "website": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "www.clinicasorriso.com.br"
                 }
             }
         },
@@ -849,16 +919,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "city": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "São Paulo"
                 },
                 "state": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "SP"
                 },
                 "street": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Av. Paulista, 1000"
                 },
                 "zip_code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "01310-100"
                 }
             }
         },
@@ -866,13 +940,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "account": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "56789-0"
                 },
                 "agency": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "1234"
                 },
                 "bank": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Banco do Brasil"
                 }
             }
         },
@@ -889,25 +966,32 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Clínica odontológica completa"
                 },
                 "document": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "12345678000199"
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "contato@clinicasorriso.com.br"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "a0000000-0000-0000-0000-000000000001"
                 },
                 "legal_name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Clínica Sorriso LTDA"
                 },
                 "opening_hours": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Seg a Sex, 8h às 18h"
                 },
                 "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "(11) 4000-1000"
                 },
                 "specialties": {
                     "type": "array",
@@ -916,16 +1000,27 @@ const docTemplate = `{
                     }
                 },
                 "status": {
-                    "$ref": "#/definitions/clinic.ClinicStatus"
+                    "enum": [
+                        "pending",
+                        "active"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/clinic.ClinicStatus"
+                        }
+                    ],
+                    "example": "active"
                 },
                 "trade_name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Clínica Sorriso"
                 },
                 "updated_at": {
                     "type": "string"
                 },
                 "website": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "www.clinicasorriso.com.br"
                 }
             }
         },
@@ -953,25 +1048,34 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "bio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Especialista em ortodontia"
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "ana.souza@clinicasorriso.com.br"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Dra. Ana Souza"
                 },
                 "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "(11) 98888-0001"
                 },
                 "specialties": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
+                    },
+                    "example": [
+                        "Ortodontia",
+                        "Invisalign"
+                    ]
                 },
                 "years_of_experience": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 12
                 }
             }
         },
@@ -979,10 +1083,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "is_administrator": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "is_legal_representative": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 }
             }
         },
@@ -990,16 +1096,20 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "bio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Especialista em ortodontia"
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "ana.souza@clinicasorriso.com.br"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Dra. Ana Souza"
                 },
                 "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "(11) 98888-0001"
                 },
                 "specialties": {
                     "type": "array",
@@ -1008,7 +1118,8 @@ const docTemplate = `{
                     }
                 },
                 "years_of_experience": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 12
                 }
             }
         },
@@ -1016,31 +1127,39 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "bio": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Especialista em ortodontia"
                 },
                 "clinic_id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "a0000000-0000-0000-0000-000000000001"
                 },
                 "created_at": {
                     "type": "string"
                 },
                 "email": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "ana.souza@clinicasorriso.com.br"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "a0000000-0000-0000-0000-000000000011"
                 },
                 "is_administrator": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "is_legal_representative": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "example": true
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Dra. Ana Souza"
                 },
                 "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "(11) 98888-0001"
                 },
                 "specialties": {
                     "type": "array",
@@ -1052,7 +1171,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "years_of_experience": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 12
                 }
             }
         },
@@ -1080,10 +1200,13 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "amount": {
-                    "type": "integer"
+                    "description": "Amount is in cents (e.g. 15000 = R$ 150,00). Must be greater than zero.",
+                    "type": "integer",
+                    "example": 15000
                 },
                 "clinic_id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "a0000000-0000-0000-0000-000000000001"
                 },
                 "dentist_id": {
                     "type": "string"
@@ -1114,13 +1237,15 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "amount": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 15000
                 },
                 "approved_at": {
                     "type": "string"
                 },
                 "clinic_id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "a0000000-0000-0000-0000-000000000001"
                 },
                 "created_at": {
                     "type": "string"
@@ -1129,13 +1254,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "62818880-fffa-4512-bb48-34692f49e3cb"
                 },
                 "pix_code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "000201262yZEd13q_BCi_wyx1gxaDLUbQfdU7oY5dm7GMumLL_A"
                 },
                 "status": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "pending",
+                        "approved"
+                    ],
+                    "example": "pending"
                 },
                 "updated_at": {
                     "type": "string"
@@ -1146,10 +1278,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "VALIDATION_ERROR"
                 },
                 "detail": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "request validation failed"
                 },
                 "errors": {
                     "type": "array",
@@ -1158,13 +1292,16 @@ const docTemplate = `{
                     }
                 },
                 "status": {
-                    "type": "integer"
+                    "type": "integer",
+                    "example": 400
                 },
                 "title": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Bad Request"
                 },
                 "type": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "about:blank"
                 }
             }
         },
@@ -1172,10 +1309,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "detail": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "is required"
                 },
                 "field": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "clinic_id"
                 }
             }
         }
@@ -1187,9 +1326,9 @@ var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "",
 	BasePath:         "/api",
-	Schemes:          []string{},
+	Schemes:          []string{"http"},
 	Title:            "Clinic API",
-	Description:      "API de gestão de clínica odontológica — clínicas e dentistas.",
+	Description:      "API de gestão de clínica odontológica: clínicas, dentistas e pagamentos via Pix (simulado).\nTodos os endpoints de negócio ficam sob o prefixo /api; o único fora dele é o health check em /health.\nErros seguem o formato RFC 9457 (application/problem+json) em todo o corpo, com um campo \"code\" estável para tratamento programático além do \"status\" HTTP.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

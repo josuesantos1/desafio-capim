@@ -28,15 +28,16 @@ type handler struct {
 }
 
 // @Summary      Create a dentist in a clinic
+// @Description  Creates a dentist attached to the given clinic. Set is_administrator/is_legal_representative afterwards via the roles endpoint if needed.
 // @Tags         dentists
 // @Accept       json
 // @Produce      json
-// @Param        clinic_id  path      string       true  "Clinic ID"
+// @Param        clinic_id  path      string       true  "Clinic ID"  format(uuid)
 // @Param        dentist    body      CreateInput  true  "Dentist to create"
 // @Success      201        {object}  dentistResponse
-// @Failure      400        {object}  problem.Details
-// @Failure      404        {object}  problem.Details
-// @Failure      409        {object}  problem.Details
+// @Failure      400        {object}  problem.Details  "validation error"
+// @Failure      404        {object}  problem.Details  "clinic not found"
+// @Failure      409        {object}  problem.Details  "email already belongs to another dentist in this clinic"
 // @Router       /clinics/{clinic_id}/dentists [post]
 func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	clinicID, ok := parseUUID(w, chi.URLParam(r, "clinic_id"))
@@ -62,11 +63,11 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 // @Summary      Get a dentist by id
 // @Tags         dentists
 // @Produce      json
-// @Param        clinic_id  path      string  true  "Clinic ID"
-// @Param        id         path      string  true  "Dentist ID"
+// @Param        clinic_id  path      string  true  "Clinic ID"  format(uuid)
+// @Param        id         path      string  true  "Dentist ID"  format(uuid)
 // @Success      200        {object}  dentistResponse
-// @Failure      400        {object}  problem.Details
-// @Failure      404        {object}  problem.Details
+// @Failure      400        {object}  problem.Details  "id is not a valid UUID"
+// @Failure      404        {object}  problem.Details  "clinic or dentist not found"
 // @Router       /clinics/{clinic_id}/dentists/{id} [get]
 func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
@@ -84,16 +85,17 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary      Update a dentist (partial)
+// @Description  Only non-null fields in the body are applied. Does not change is_administrator/is_legal_representative — use PATCH .../roles for that.
 // @Tags         dentists
 // @Accept       json
 // @Produce      json
-// @Param        clinic_id  path      string       true  "Clinic ID"
-// @Param        id         path      string       true  "Dentist ID"
+// @Param        clinic_id  path      string       true  "Clinic ID"  format(uuid)
+// @Param        id         path      string       true  "Dentist ID"  format(uuid)
 // @Param        dentist    body      UpdateInput  true  "Fields to update"
 // @Success      200        {object}  dentistResponse
-// @Failure      400        {object}  problem.Details
-// @Failure      404        {object}  problem.Details
-// @Failure      409        {object}  problem.Details
+// @Failure      400        {object}  problem.Details  "validation error"
+// @Failure      404        {object}  problem.Details  "clinic or dentist not found"
+// @Failure      409        {object}  problem.Details  "email already belongs to another dentist in this clinic"
 // @Router       /clinics/{clinic_id}/dentists/{id} [put]
 func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
@@ -117,16 +119,17 @@ func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary      Update a dentist's administrator/legal representative flags
+// @Description  An active clinic must always keep at least one administrator and one legal representative; demoting the last one of either role returns 409.
 // @Tags         dentists
 // @Accept       json
 // @Produce      json
-// @Param        clinic_id  path      string      true  "Clinic ID"
-// @Param        id         path      string      true  "Dentist ID"
+// @Param        clinic_id  path      string      true  "Clinic ID"  format(uuid)
+// @Param        id         path      string      true  "Dentist ID"  format(uuid)
 // @Param        roles      body      RolesInput  true  "Flags to update (at least one required)"
 // @Success      200        {object}  dentistResponse
-// @Failure      400        {object}  problem.Details
-// @Failure      404        {object}  problem.Details
-// @Failure      409        {object}  problem.Details
+// @Failure      400        {object}  problem.Details  "validation error"
+// @Failure      404        {object}  problem.Details  "clinic or dentist not found"
+// @Failure      409        {object}  problem.Details  "would leave the clinic without an administrator or legal representative"
 // @Router       /clinics/{clinic_id}/dentists/{id}/roles [patch]
 func (h *handler) updateRoles(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
@@ -150,12 +153,14 @@ func (h *handler) updateRoles(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary      Soft-delete a dentist
+// @Description  Rejected with 409 if the dentist is the clinic's last administrator or last legal representative.
 // @Tags         dentists
-// @Param        clinic_id  path  string  true  "Clinic ID"
-// @Param        id         path  string  true  "Dentist ID"
-// @Success      204
-// @Failure      400  {object}  problem.Details
-// @Failure      404  {object}  problem.Details
+// @Param        clinic_id  path  string  true  "Clinic ID"  format(uuid)
+// @Param        id         path  string  true  "Dentist ID"  format(uuid)
+// @Success      204  "dentist deleted"
+// @Failure      400  {object}  problem.Details  "id is not a valid UUID"
+// @Failure      404  {object}  problem.Details  "clinic or dentist not found"
+// @Failure      409  {object}  problem.Details  "would leave the clinic without an administrator or legal representative"
 // @Router       /clinics/{clinic_id}/dentists/{id} [delete]
 func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 	clinicID, id, ok := parsePathIDs(w, r)
@@ -174,14 +179,14 @@ func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 // @Summary      List dentists of a clinic (paginated)
 // @Tags         dentists
 // @Produce      json
-// @Param        clinic_id  path      string  true   "Clinic ID"
-// @Param        limit      query     int     false  "Page size (default 20, max 100)"
-// @Param        offset     query     int     false  "Offset (default 0)"
+// @Param        clinic_id  path      string  true   "Clinic ID"  format(uuid)
+// @Param        limit      query     int     false  "Page size"  default(20)  maximum(100)
+// @Param        offset     query     int     false  "Offset for pagination"  default(0)
 // @Param        is_administrator        query  bool  false  "Filter by administrator flag"
 // @Param        is_legal_representative query  bool  false  "Filter by legal representative flag"
 // @Success      200        {object}  listResponse
-// @Failure      400        {object}  problem.Details
-// @Failure      404        {object}  problem.Details
+// @Failure      400        {object}  problem.Details  "clinic_id is not a valid UUID"
+// @Failure      404        {object}  problem.Details  "clinic not found"
 // @Router       /clinics/{clinic_id}/dentists [get]
 func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	clinicID, ok := parseUUID(w, chi.URLParam(r, "clinic_id"))

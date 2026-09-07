@@ -26,16 +26,17 @@ type handler struct {
 }
 
 // @Summary      Create a Pix payment
+// @Description  Creates a "pending" payment with a simulated Pix copy-and-paste code. A background job approves it automatically after a random 2-5s delay. Replaying the same Idempotency-Key with the same body returns the original payment (200); replaying it with a different body returns 409.
 // @Tags         payments
 // @Accept       json
 // @Produce      json
-// @Param        Idempotency-Key  header    string       true  "Idempotency key"
+// @Param        Idempotency-Key  header    string       true  "Client-generated unique key; safe to retry a request with the same key"
 // @Param        payment          body      CreateInput  true  "Payment to create"
-// @Success      201              {object}  paymentResponse
-// @Success      200              {object}  paymentResponse "replay of an existing payment"
-// @Failure      400              {object}  problem.Details
-// @Failure      404              {object}  problem.Details
-// @Failure      409              {object}  problem.Details
+// @Success      201              {object}  paymentResponse  "payment created"
+// @Success      200              {object}  paymentResponse  "replay of an existing payment (same Idempotency-Key and body)"
+// @Failure      400              {object}  problem.Details  "missing Idempotency-Key header or validation error"
+// @Failure      404              {object}  problem.Details  "clinic or dentist not found"
+// @Failure      409              {object}  problem.Details  "clinic not active, or Idempotency-Key reused with a different body"
 // @Router       /payments [post]
 func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	key := r.Header.Get("Idempotency-Key")
@@ -64,12 +65,13 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary      Get a payment by id
+// @Description  Poll this endpoint to observe the status transition from "pending" to "approved".
 // @Tags         payments
 // @Produce      json
-// @Param        id   path      string  true  "Payment ID"
+// @Param        id   path      string  true  "Payment ID"  format(uuid)
 // @Success      200  {object}  paymentResponse
-// @Failure      400  {object}  problem.Details
-// @Failure      404  {object}  problem.Details
+// @Failure      400  {object}  problem.Details  "id is not a valid UUID"
+// @Failure      404  {object}  problem.Details  "payment not found"
 // @Router       /payments/{id} [get]
 func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
@@ -90,13 +92,13 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 // @Summary      List payments for a clinic (paginated)
 // @Tags         payments
 // @Produce      json
-// @Param        clinic_id  query     string  true   "Clinic ID"
-// @Param        status     query     string  false  "Filter by status (pending|approved)"
-// @Param        limit      query     int     false  "Page size (default 20, max 100)"
-// @Param        offset     query     int     false  "Offset (default 0)"
+// @Param        clinic_id  query     string  true   "Clinic ID"  format(uuid)
+// @Param        status     query     string  false  "Filter by status"  Enums(pending, approved)
+// @Param        limit      query     int     false  "Page size"  default(20)  maximum(100)
+// @Param        offset     query     int     false  "Offset for pagination"  default(0)
 // @Success      200        {object}  listResponse
-// @Failure      400        {object}  problem.Details
-// @Failure      404        {object}  problem.Details
+// @Failure      400        {object}  problem.Details  "clinic_id missing or not a valid UUID"
+// @Failure      404        {object}  problem.Details  "clinic not found"
 // @Router       /payments [get]
 func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	clinicID := r.URL.Query().Get("clinic_id")

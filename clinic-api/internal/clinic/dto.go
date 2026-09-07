@@ -3,32 +3,33 @@ package clinic
 import "time"
 
 type bankingResponse struct {
-	Bank    string `json:"bank"`
-	Agency  string `json:"agency"`
-	Account string `json:"account"`
+	Bank    string `json:"bank" example:"Banco do Brasil"`
+	Agency  string `json:"agency" example:"1234"`
+	Account string `json:"account" example:"56789-0"`
 }
 
 type addressDTO struct {
-	Street  string `json:"street"`
-	City    string `json:"city"`
-	State   string `json:"state"`
-	ZipCode string `json:"zip_code"`
+	Street  string `json:"street" example:"Av. Paulista, 1000"`
+	City    string `json:"city" example:"São Paulo"`
+	State   string `json:"state" example:"SP"`
+	ZipCode string `json:"zip_code" example:"01310-100"`
 }
 
+// clinicResponse is the JSON representation of a Clinic returned by the API.
 type clinicResponse struct {
-	ID           string           `json:"id"`
-	Document     string           `json:"document"`
-	LegalName    string           `json:"legal_name"`
-	TradeName    string           `json:"trade_name"`
+	ID           string           `json:"id" example:"a0000000-0000-0000-0000-000000000001"`
+	Document     string           `json:"document" example:"12345678000199"`
+	LegalName    string           `json:"legal_name" example:"Clínica Sorriso LTDA"`
+	TradeName    string           `json:"trade_name" example:"Clínica Sorriso"`
 	Banking      *bankingResponse `json:"banking"`
-	Description  string           `json:"description"`
+	Description  string           `json:"description" example:"Clínica odontológica completa"`
 	Address      *addressDTO      `json:"address"`
-	Phone        string           `json:"phone"`
-	Email        string           `json:"email"`
-	Website      string           `json:"website"`
-	OpeningHours string           `json:"opening_hours"`
+	Phone        string           `json:"phone" example:"(11) 4000-1000"`
+	Email        string           `json:"email" example:"contato@clinicasorriso.com.br"`
+	Website      string           `json:"website" example:"www.clinicasorriso.com.br"`
+	OpeningHours string           `json:"opening_hours" example:"Seg a Sex, 8h às 18h"`
 	Specialties  []string         `json:"specialties"`
-	Status       ClinicStatus     `json:"status"`
+	Status       ClinicStatus     `json:"status" example:"active" enums:"pending,active"`
 	CreatedAt    time.Time        `json:"created_at"`
 	UpdatedAt    time.Time        `json:"updated_at"`
 }

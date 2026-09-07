@@ -27,13 +27,14 @@ type handler struct {
 }
 
 // @Summary      Create a clinic
+// @Description  Creates a clinic with status "pending". It becomes "active" automatically once it has at least one dentist marked as administrator and one marked as legal representative.
 // @Tags         clinics
 // @Accept       json
 // @Produce      json
 // @Param        clinic  body      CreateInput  true  "Clinic to create"
 // @Success      201     {object}  clinicResponse
-// @Failure      400     {object}  problem.Details
-// @Failure      409     {object}  problem.Details
+// @Failure      400     {object}  problem.Details  "validation error"
+// @Failure      409     {object}  problem.Details  "document already belongs to another clinic"
 // @Router       /clinics [post]
 func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	var in CreateInput
@@ -54,10 +55,10 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 // @Summary      Get a clinic by id
 // @Tags         clinics
 // @Produce      json
-// @Param        id   path      string  true  "Clinic ID"
+// @Param        id   path      string  true  "Clinic ID"  format(uuid)
 // @Success      200  {object}  clinicResponse
-// @Failure      400  {object}  problem.Details
-// @Failure      404  {object}  problem.Details
+// @Failure      400  {object}  problem.Details  "id is not a valid UUID"
+// @Failure      404  {object}  problem.Details  "clinic not found"
 // @Router       /clinics/{id} [get]
 func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
@@ -75,14 +76,15 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary      Update a clinic (partial)
+// @Description  Only non-null fields in the body are applied. "document" cannot be changed after creation and returns 400 DOCUMENT_IMMUTABLE if attempted.
 // @Tags         clinics
 // @Accept       json
 // @Produce      json
-// @Param        id      path      string       true  "Clinic ID"
+// @Param        id      path      string       true  "Clinic ID"  format(uuid)
 // @Param        clinic  body      UpdateInput  true  "Fields to update"
 // @Success      200     {object}  clinicResponse
-// @Failure      400     {object}  problem.Details
-// @Failure      404     {object}  problem.Details
+// @Failure      400     {object}  problem.Details  "validation error or attempt to change document"
+// @Failure      404     {object}  problem.Details  "clinic not found"
 // @Router       /clinics/{id} [put]
 func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
@@ -106,11 +108,12 @@ func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 }
 
 // @Summary      Soft-delete a clinic
+// @Description  Marks the clinic as deleted (DeletedAt is set); it stops appearing in list/get and its document becomes reusable for a new clinic. Existing dentists and payments are not affected.
 // @Tags         clinics
-// @Param        id   path  string  true  "Clinic ID"
-// @Success      204
-// @Failure      400  {object}  problem.Details
-// @Failure      404  {object}  problem.Details
+// @Param        id   path  string  true  "Clinic ID"  format(uuid)
+// @Success      204  "clinic deleted"
+// @Failure      400  {object}  problem.Details  "id is not a valid UUID"
+// @Failure      404  {object}  problem.Details  "clinic not found"
 // @Router       /clinics/{id} [delete]
 func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseID(w, r)
@@ -129,8 +132,8 @@ func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 // @Summary      List/search clinics (paginated)
 // @Tags         clinics
 // @Produce      json
-// @Param        limit   query     int     false  "Page size (default 20, max 100)"
-// @Param        offset  query     int     false  "Offset (default 0)"
+// @Param        limit   query     int     false  "Page size"           default(20)  maximum(100)
+// @Param        offset  query     int     false  "Offset for pagination"  default(0)
 // @Param        q       query     string  false  "Free-text search (trade name, legal name, specialties)"
 // @Param        city    query     string  false  "Filter by city (substring, case-insensitive)"
 // @Success      200     {object}  listResponse

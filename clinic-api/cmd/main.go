@@ -24,10 +24,13 @@ import (
 
 const shutdownTimeout = 10 * time.Second
 
-// @title Clinic API
-// @version 1.0
-// @description API de gestão de clínica odontológica — clínicas e dentistas.
-// @BasePath /api
+// @title        Clinic API
+// @version      1.0
+// @description  API de gestão de clínica odontológica: clínicas, dentistas e pagamentos via Pix (simulado).
+// @description  Todos os endpoints de negócio ficam sob o prefixo /api; o único fora dele é o health check em /health.
+// @description  Erros seguem o formato RFC 9457 (application/problem+json) em todo o corpo, com um campo "code" estável para tratamento programático além do "status" HTTP.
+// @schemes      http
+// @BasePath     /api
 func main() {
 	cfg := config.Load()
 	setupLogger(cfg.LogLevel)

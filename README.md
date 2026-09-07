@@ -248,7 +248,7 @@ make vuln   # gosec + govulncheck
 
 ## Documentação da API
 
-A API possui documentação Swagger.
+A API é documentada via Swagger/OpenAPI, gerado a partir de anotações nos handlers (`swaggo/swag`). Cada endpoint tem descrição, parâmetros, exemplos de payload/resposta e os códigos de erro possíveis.
 
 Com o backend em execução, acesse:
 
@@ -258,9 +258,39 @@ Com o backend em execução, acesse:
 http://localhost:8080/swagger/index.html
 ```
 
-A documentação permite visualizar os endpoints disponíveis, seus parâmetros, payloads e respostas.
+Para regenerar a documentação após alterar as anotações:
 
-Todos os endpoints de negócio (clínicas, dentistas, pagamentos) ficam sob o prefixo `/api` — por exemplo, `GET http://localhost:8080/api/clinics`. O único endpoint fora desse prefixo é o health check, em `/health`.
+```bash
+make swagger
+```
+
+### Convenções
+
+* Todos os endpoints de negócio ficam sob o prefixo `/api` — por exemplo, `GET http://localhost:8080/api/clinics`. O único endpoint fora desse prefixo é o health check, em `/health`.
+* Todo erro é retornado no formato [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) (`application/problem+json`), com um campo `code` estável (ex.: `VALIDATION_ERROR`, `CLINIC_NOT_ACTIVE`) para tratamento programático, além do `status` HTTP.
+* `POST /payments` exige o header `Idempotency-Key`: reenviar a mesma chave com o mesmo corpo retorna o pagamento já criado (200); com um corpo diferente, retorna `409 IDEMPOTENCY_KEY_CONFLICT`.
+
+### Endpoints
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/clinics` | Cria uma clínica (status inicial `pending`) |
+| `GET` | `/api/clinics` | Lista/busca clínicas (paginado; filtros `q`, `city`) |
+| `GET` | `/api/clinics/{id}` | Detalhe de uma clínica |
+| `PUT` | `/api/clinics/{id}` | Atualiza uma clínica (parcial; `document` é imutável) |
+| `DELETE` | `/api/clinics/{id}` | Remove (soft delete) uma clínica |
+| `POST` | `/api/clinics/{clinic_id}/dentists` | Cria um dentista na clínica |
+| `GET` | `/api/clinics/{clinic_id}/dentists` | Lista dentistas da clínica (paginado; filtros por papel) |
+| `GET` | `/api/clinics/{clinic_id}/dentists/{id}` | Detalhe de um dentista |
+| `PUT` | `/api/clinics/{clinic_id}/dentists/{id}` | Atualiza um dentista (parcial) |
+| `PATCH` | `/api/clinics/{clinic_id}/dentists/{id}/roles` | Altera as flags de administrador/responsável legal |
+| `DELETE` | `/api/clinics/{clinic_id}/dentists/{id}` | Remove (soft delete) um dentista |
+| `POST` | `/api/payments` | Cria um pagamento Pix (requer `Idempotency-Key`) |
+| `GET` | `/api/payments` | Lista pagamentos de uma clínica (paginado; filtro `status`) |
+| `GET` | `/api/payments/{id}` | Detalhe de um pagamento (poll para ver `pending → approved`) |
+
+A lista completa de parâmetros, exemplos e todos os códigos de erro possíveis por endpoint está no Swagger UI.
 
 
 ## Justificativa Técnica

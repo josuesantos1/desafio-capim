@@ -3,12 +3,16 @@ definitions:
   clinic.Address:
     properties:
       city:
+        example: São Paulo
         type: string
       state:
+        example: SP
         type: string
       street:
+        example: Av. Paulista, 1000
         type: string
       zip_code:
+        example: 01310-100
         type: string
     type: object
   clinic.Banking:
@@ -16,8 +20,10 @@ definitions:
       account:
         type: string
       agency:
+        example: "1234"
         type: string
       bank:
+        example: Banco do Brasil
         type: string
     type: object
   clinic.ClinicStatus:
@@ -35,24 +41,36 @@ definitions:
       banking:
         $ref: '#/definitions/clinic.Banking'
       description:
+        example: Clínica odontológica completa
         type: string
       document:
+        description: Document is the CPF/CNPJ. Immutable after creation.
+        example: "12345678000199"
         type: string
       email:
+        example: contato@clinicasorriso.com.br
         type: string
       legal_name:
+        example: Clínica Sorriso LTDA
         type: string
       opening_hours:
+        example: Seg a Sex, 8h às 18h
         type: string
       phone:
+        example: (11) 4000-1000
         type: string
       specialties:
+        example:
+        - Ortodontia
+        - Implantodontia
         items:
           type: string
         type: array
       trade_name:
+        example: Clínica Sorriso
         type: string
       website:
+        example: www.clinicasorriso.com.br
         type: string
     type: object
   clinic.UpdateInput:
@@ -62,44 +80,59 @@ definitions:
       banking:
         $ref: '#/definitions/clinic.Banking'
       description:
+        example: Clínica odontológica completa
         type: string
       document:
+        example: "12345678000199"
         type: string
       email:
+        example: contato@clinicasorriso.com.br
         type: string
       legal_name:
+        example: Clínica Sorriso LTDA
         type: string
       opening_hours:
+        example: Seg a Sex, 8h às 18h
         type: string
       phone:
+        example: (11) 4000-1000
         type: string
       specialties:
         items:
           type: string
         type: array
       trade_name:
+        example: Clínica Sorriso
         type: string
       website:
+        example: www.clinicasorriso.com.br
         type: string
     type: object
   clinic.addressDTO:
     properties:
       city:
+        example: São Paulo
         type: string
       state:
+        example: SP
         type: string
       street:
+        example: Av. Paulista, 1000
         type: string
       zip_code:
+        example: 01310-100
         type: string
     type: object
   clinic.bankingResponse:
     properties:
       account:
+        example: 56789-0
         type: string
       agency:
+        example: "1234"
         type: string
       bank:
+        example: Banco do Brasil
         type: string
     type: object
   clinic.clinicResponse:
@@ -111,30 +144,44 @@ definitions:
       created_at:
         type: string
       description:
+        example: Clínica odontológica completa
         type: string
       document:
+        example: "12345678000199"
         type: string
       email:
+        example: contato@clinicasorriso.com.br
         type: string
       id:
+        example: a0000000-0000-0000-0000-000000000001
         type: string
       legal_name:
+        example: Clínica Sorriso LTDA
         type: string
       opening_hours:
+        example: Seg a Sex, 8h às 18h
         type: string
       phone:
+        example: (11) 4000-1000
         type: string
       specialties:
         items:
           type: string
         type: array
       status:
-        $ref: '#/definitions/clinic.ClinicStatus'
+        allOf:
+        - $ref: '#/definitions/clinic.ClinicStatus'
+        enum:
+        - pending
+        - active
+        example: active
       trade_name:
+        example: Clínica Sorriso
         type: string
       updated_at:
         type: string
       website:
+        example: www.clinicasorriso.com.br
         type: string
     type: object
   clinic.listResponse:
@@ -153,63 +200,86 @@ definitions:
   dentist.CreateInput:
     properties:
       bio:
+        example: Especialista em ortodontia
         type: string
       email:
+        example: ana.souza@clinicasorriso.com.br
         type: string
       name:
+        example: Dra. Ana Souza
         type: string
       phone:
+        example: (11) 98888-0001
         type: string
       specialties:
+        example:
+        - Ortodontia
+        - Invisalign
         items:
           type: string
         type: array
       years_of_experience:
+        example: 12
         type: integer
     type: object
   dentist.RolesInput:
     properties:
       is_administrator:
+        example: true
         type: boolean
       is_legal_representative:
+        example: true
         type: boolean
     type: object
   dentist.UpdateInput:
     properties:
       bio:
+        example: Especialista em ortodontia
         type: string
       email:
+        example: ana.souza@clinicasorriso.com.br
         type: string
       name:
+        example: Dra. Ana Souza
         type: string
       phone:
+        example: (11) 98888-0001
         type: string
       specialties:
         items:
           type: string
         type: array
       years_of_experience:
+        example: 12
         type: integer
     type: object
   dentist.dentistResponse:
     properties:
       bio:
+        example: Especialista em ortodontia
         type: string
       clinic_id:
+        example: a0000000-0000-0000-0000-000000000001
         type: string
       created_at:
         type: string
       email:
+        example: ana.souza@clinicasorriso.com.br
         type: string
       id:
+        example: a0000000-0000-0000-0000-000000000011
         type: string
       is_administrator:
+        example: true
         type: boolean
       is_legal_representative:
+        example: true
         type: boolean
       name:
+        example: Dra. Ana Souza
         type: string
       phone:
+        example: (11) 98888-0001
         type: string
       specialties:
         items:
@@ -218,6 +288,7 @@ definitions:
       updated_at:
         type: string
       years_of_experience:
+        example: 12
         type: integer
     type: object
   dentist.listResponse:
@@ -236,8 +307,12 @@ definitions:
   payment.CreateInput:
     properties:
       amount:
+        description: Amount is in cents (e.g. 15000 = R$ 150,00). Must be greater
+          than zero.
+        example: 15000
         type: integer
       clinic_id:
+        example: a0000000-0000-0000-0000-000000000001
         type: string
       dentist_id:
         type: string
@@ -258,20 +333,28 @@ definitions:
   payment.paymentResponse:
     properties:
       amount:
+        example: 15000
         type: integer
       approved_at:
         type: string
       clinic_id:
+        example: a0000000-0000-0000-0000-000000000001
         type: string
       created_at:
         type: string
       dentist_id:
         type: string
       id:
+        example: 62818880-fffa-4512-bb48-34692f49e3cb
         type: string
       pix_code:
+        example: 000201262yZEd13q_BCi_wyx1gxaDLUbQfdU7oY5dm7GMumLL_A
         type: string
       status:
+        enum:
+        - pending
+        - approved
+        example: pending
         type: string
       updated_at:
         type: string
@@ -279,41 +362,54 @@ definitions:
   problem.Details:
     properties:
       code:
+        example: VALIDATION_ERROR
         type: string
       detail:
+        example: request validation failed
         type: string
       errors:
         items:
           $ref: '#/definitions/problem.FieldError'
         type: array
       status:
+        example: 400
         type: integer
       title:
+        example: Bad Request
         type: string
       type:
+        example: about:blank
         type: string
     type: object
   problem.FieldError:
     properties:
       detail:
+        example: is required
         type: string
       field:
+        example: clinic_id
         type: string
     type: object
 info:
   contact: {}
-  description: API de gestão de clínica odontológica — clínicas e dentistas.
+  description: |-
+    API de gestão de clínica odontológica: clínicas, dentistas e pagamentos via Pix (simulado).
+    Todos os endpoints de negócio ficam sob o prefixo /api; o único fora dele é o health check em /health.
+    Erros seguem o formato RFC 9457 (application/problem+json) em todo o corpo, com um campo "code" estável para tratamento programático além do "status" HTTP.
   title: Clinic API
   version: "1.0"
 paths:
   /clinics:
     get:
       parameters:
-      - description: Page size (default 20, max 100)
+      - default: 20
+        description: Page size
         in: query
+        maximum: 100
         name: limit
         type: integer
-      - description: Offset (default 0)
+      - default: 0
+        description: Offset for pagination
         in: query
         name: offset
         type: integer
@@ -338,6 +434,9 @@ paths:
     post:
       consumes:
       - application/json
+      description: Creates a clinic with status "pending". It becomes "active" automatically
+        once it has at least one dentist marked as administrator and one marked as
+        legal representative.
       parameters:
       - description: Clinic to create
         in: body
@@ -353,11 +452,11 @@ paths:
           schema:
             $ref: '#/definitions/clinic.clinicResponse'
         "400":
-          description: Bad Request
+          description: validation error
           schema:
             $ref: '#/definitions/problem.Details'
         "409":
-          description: Conflict
+          description: document already belongs to another clinic
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Create a clinic
@@ -367,15 +466,19 @@ paths:
     get:
       parameters:
       - description: Clinic ID
+        format: uuid
         in: path
         name: clinic_id
         required: true
         type: string
-      - description: Page size (default 20, max 100)
+      - default: 20
+        description: Page size
         in: query
+        maximum: 100
         name: limit
         type: integer
-      - description: Offset (default 0)
+      - default: 0
+        description: Offset for pagination
         in: query
         name: offset
         type: integer
@@ -395,11 +498,11 @@ paths:
           schema:
             $ref: '#/definitions/dentist.listResponse'
         "400":
-          description: Bad Request
+          description: clinic_id is not a valid UUID
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic not found
           schema:
             $ref: '#/definitions/problem.Details'
       summary: List dentists of a clinic (paginated)
@@ -408,8 +511,11 @@ paths:
     post:
       consumes:
       - application/json
+      description: Creates a dentist attached to the given clinic. Set is_administrator/is_legal_representative
+        afterwards via the roles endpoint if needed.
       parameters:
       - description: Clinic ID
+        format: uuid
         in: path
         name: clinic_id
         required: true
@@ -428,15 +534,15 @@ paths:
           schema:
             $ref: '#/definitions/dentist.dentistResponse'
         "400":
-          description: Bad Request
+          description: validation error
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic not found
           schema:
             $ref: '#/definitions/problem.Details'
         "409":
-          description: Conflict
+          description: email already belongs to another dentist in this clinic
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Create a dentist in a clinic
@@ -444,26 +550,34 @@ paths:
       - dentists
   /clinics/{clinic_id}/dentists/{id}:
     delete:
+      description: Rejected with 409 if the dentist is the clinic's last administrator
+        or last legal representative.
       parameters:
       - description: Clinic ID
+        format: uuid
         in: path
         name: clinic_id
         required: true
         type: string
       - description: Dentist ID
+        format: uuid
         in: path
         name: id
         required: true
         type: string
       responses:
         "204":
-          description: No Content
+          description: dentist deleted
         "400":
-          description: Bad Request
+          description: id is not a valid UUID
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic or dentist not found
+          schema:
+            $ref: '#/definitions/problem.Details'
+        "409":
+          description: would leave the clinic without an administrator or legal representative
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Soft-delete a dentist
@@ -472,11 +586,13 @@ paths:
     get:
       parameters:
       - description: Clinic ID
+        format: uuid
         in: path
         name: clinic_id
         required: true
         type: string
       - description: Dentist ID
+        format: uuid
         in: path
         name: id
         required: true
@@ -489,11 +605,11 @@ paths:
           schema:
             $ref: '#/definitions/dentist.dentistResponse'
         "400":
-          description: Bad Request
+          description: id is not a valid UUID
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic or dentist not found
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Get a dentist by id
@@ -502,13 +618,17 @@ paths:
     put:
       consumes:
       - application/json
+      description: Only non-null fields in the body are applied. Does not change is_administrator/is_legal_representative
+        — use PATCH .../roles for that.
       parameters:
       - description: Clinic ID
+        format: uuid
         in: path
         name: clinic_id
         required: true
         type: string
       - description: Dentist ID
+        format: uuid
         in: path
         name: id
         required: true
@@ -527,15 +647,15 @@ paths:
           schema:
             $ref: '#/definitions/dentist.dentistResponse'
         "400":
-          description: Bad Request
+          description: validation error
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic or dentist not found
           schema:
             $ref: '#/definitions/problem.Details'
         "409":
-          description: Conflict
+          description: email already belongs to another dentist in this clinic
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Update a dentist (partial)
@@ -545,13 +665,17 @@ paths:
     patch:
       consumes:
       - application/json
+      description: An active clinic must always keep at least one administrator and
+        one legal representative; demoting the last one of either role returns 409.
       parameters:
       - description: Clinic ID
+        format: uuid
         in: path
         name: clinic_id
         required: true
         type: string
       - description: Dentist ID
+        format: uuid
         in: path
         name: id
         required: true
@@ -570,15 +694,15 @@ paths:
           schema:
             $ref: '#/definitions/dentist.dentistResponse'
         "400":
-          description: Bad Request
+          description: validation error
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic or dentist not found
           schema:
             $ref: '#/definitions/problem.Details'
         "409":
-          description: Conflict
+          description: would leave the clinic without an administrator or legal representative
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Update a dentist's administrator/legal representative flags
@@ -586,21 +710,25 @@ paths:
       - dentists
   /clinics/{id}:
     delete:
+      description: Marks the clinic as deleted (DeletedAt is set); it stops appearing
+        in list/get and its document becomes reusable for a new clinic. Existing dentists
+        and payments are not affected.
       parameters:
       - description: Clinic ID
+        format: uuid
         in: path
         name: id
         required: true
         type: string
       responses:
         "204":
-          description: No Content
+          description: clinic deleted
         "400":
-          description: Bad Request
+          description: id is not a valid UUID
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic not found
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Soft-delete a clinic
@@ -609,6 +737,7 @@ paths:
     get:
       parameters:
       - description: Clinic ID
+        format: uuid
         in: path
         name: id
         required: true
@@ -621,11 +750,11 @@ paths:
           schema:
             $ref: '#/definitions/clinic.clinicResponse'
         "400":
-          description: Bad Request
+          description: id is not a valid UUID
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic not found
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Get a clinic by id
@@ -634,8 +763,11 @@ paths:
     put:
       consumes:
       - application/json
+      description: Only non-null fields in the body are applied. "document" cannot
+        be changed after creation and returns 400 DOCUMENT_IMMUTABLE if attempted.
       parameters:
       - description: Clinic ID
+        format: uuid
         in: path
         name: id
         required: true
@@ -654,11 +786,11 @@ paths:
           schema:
             $ref: '#/definitions/clinic.clinicResponse'
         "400":
-          description: Bad Request
+          description: validation error or attempt to change document
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic not found
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Update a clinic (partial)
@@ -668,19 +800,26 @@ paths:
     get:
       parameters:
       - description: Clinic ID
+        format: uuid
         in: query
         name: clinic_id
         required: true
         type: string
-      - description: Filter by status (pending|approved)
+      - description: Filter by status
+        enum:
+        - pending
+        - approved
         in: query
         name: status
         type: string
-      - description: Page size (default 20, max 100)
+      - default: 20
+        description: Page size
         in: query
+        maximum: 100
         name: limit
         type: integer
-      - description: Offset (default 0)
+      - default: 0
+        description: Offset for pagination
         in: query
         name: offset
         type: integer
@@ -692,11 +831,11 @@ paths:
           schema:
             $ref: '#/definitions/payment.listResponse'
         "400":
-          description: Bad Request
+          description: clinic_id missing or not a valid UUID
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic not found
           schema:
             $ref: '#/definitions/problem.Details'
       summary: List payments for a clinic (paginated)
@@ -705,8 +844,13 @@ paths:
     post:
       consumes:
       - application/json
+      description: Creates a "pending" payment with a simulated Pix copy-and-paste
+        code. A background job approves it automatically after a random 2-5s delay.
+        Replaying the same Idempotency-Key with the same body returns the original
+        payment (200); replaying it with a different body returns 409.
       parameters:
-      - description: Idempotency key
+      - description: Client-generated unique key; safe to retry a request with the
+          same key
         in: header
         name: Idempotency-Key
         required: true
@@ -721,23 +865,24 @@ paths:
       - application/json
       responses:
         "200":
-          description: replay of an existing payment
+          description: replay of an existing payment (same Idempotency-Key and body)
           schema:
             $ref: '#/definitions/payment.paymentResponse'
         "201":
-          description: Created
+          description: payment created
           schema:
             $ref: '#/definitions/payment.paymentResponse'
         "400":
-          description: Bad Request
+          description: missing Idempotency-Key header or validation error
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: clinic or dentist not found
           schema:
             $ref: '#/definitions/problem.Details'
         "409":
-          description: Conflict
+          description: clinic not active, or Idempotency-Key reused with a different
+            body
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Create a Pix payment
@@ -745,8 +890,11 @@ paths:
       - payments
   /payments/{id}:
     get:
+      description: Poll this endpoint to observe the status transition from "pending"
+        to "approved".
       parameters:
       - description: Payment ID
+        format: uuid
         in: path
         name: id
         required: true
@@ -759,14 +907,16 @@ paths:
           schema:
             $ref: '#/definitions/payment.paymentResponse'
         "400":
-          description: Bad Request
+          description: id is not a valid UUID
           schema:
             $ref: '#/definitions/problem.Details'
         "404":
-          description: Not Found
+          description: payment not found
           schema:
             $ref: '#/definitions/problem.Details'
       summary: Get a payment by id
       tags:
       - payments
+schemes:
+- http
 swagger: "2.0"
