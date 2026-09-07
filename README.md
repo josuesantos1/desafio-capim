@@ -49,6 +49,7 @@ O frontend possui duas áreas principais:
 * Criação e gerenciamento de clínicas.
 * Cadastro e gerenciamento de dentistas.
 * Visualização das informações básicas relacionadas à clínica.
+_Para login no frontend basta colocar o email da clinica e adicionar o codigo *00000*_
 
 A ideia é representar, de forma simples, tanto o lado de **descoberta de clínicas** quanto o lado de **gestão da operação**.
 
