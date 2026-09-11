@@ -304,8 +304,10 @@ func TestIntegration_ListPayments(t *testing.T) {
 			wantContains: "CLINIC_NOT_FOUND",
 		},
 		{
-			name:         "pending clinic without payments returns empty list, not an error",
-			setup:        func(t *testing.T, clinicRepo clinic.Repository, dentistRepo dentist.Repository) { mustCreateClinic(t, clinicRepo, integrationClinicID) },
+			name: "pending clinic without payments returns empty list, not an error",
+			setup: func(t *testing.T, clinicRepo clinic.Repository, dentistRepo dentist.Repository) {
+				mustCreateClinic(t, clinicRepo, integrationClinicID)
+			},
 			query:        "?clinic_id=" + integrationClinicID,
 			wantStatus:   http.StatusOK,
 			wantContains: `"items":[],"total":0`,
