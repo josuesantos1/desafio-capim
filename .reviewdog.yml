@@ -1,0 +1,10 @@
+runner:
+  golangci-lint:
+    cmd: cd clinic-api && golangci-lint run --output.checkstyle.path=stdout ./...
+    format: checkstyle
+    level: warning
+
+  # eslint:
+  #   cmd: cd frontend && npx --no-install eslint src --format checkstyle
+  #   format: checkstyle
+  #   level: warning

@@ -1,0 +1,27 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - gosec
+    - errcheck
+    - staticcheck
+    - unused
+    - govet
+    - ineffassign
+    - unconvert
+    # misspell fica de fora: dicionário só cobre inglês e gera falso-positivo
+    # em comentários/strings pt-BR do projeto (ex: "dentistas", "implantes").
+  exclusions:
+    generated: lax
+    paths:
+      - mocks
+      - docs
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+
+run:
+  timeout: 5m

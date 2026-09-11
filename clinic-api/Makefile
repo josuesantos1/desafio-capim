@@ -42,3 +42,6 @@ docker:
 vuln:
 	gosec ./...
 	govulncheck ./...
+
+.PHONY: check
+check: build vuln lint

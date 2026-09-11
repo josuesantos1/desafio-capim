@@ -8,3 +8,5 @@ persona
 ai.*
 *.pdf
 **/cache
+AGENTS.md
+/.codex
